@@ -2123,15 +2123,9 @@ const App: React.FC = () => {
                 }
                 const finalGoalText = goalTextBlocks.length > 0 ? goalTextBlocks.join('\n') : cellMucTieu;
 
-                // Tách các mục tiêu đang dính nhau thành list nếu cần hoặc giữ nguyên
+                // Nếu ô mục tiêu dài hạn có cách dòng hay đầu dòng, ta nhóm tất cả lại thành 1 mục tiêu duy nhất
+                // (Chỉ tách khi người dùng thực sự đặt vào các ô khác nhau trong Word)
                 let splittedGoals = [finalGoalText];
-                if (finalGoalText.includes('\n') && (finalGoalText.match(/^\d+\./m) || finalGoalText.match(/^-/m) || finalGoalText.match(/^•/m))) {
-                  // Split by line if it seems like a list
-                  splittedGoals = finalGoalText.split('\n').filter(t => t.trim().length > 0);
-                } else if (finalGoalText.includes('\n')) {
-                  // Default split by newline to keep goals cleanly separated if there are multiple lines
-                  splittedGoals = finalGoalText.split('\n').filter(t => t.trim().length > 0);
-                }
 
                 splittedGoals.forEach(g => {
                   currentFieldGroup!.goals.push({

@@ -9,14 +9,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/genai": "^1.39.0",
+    "docx": "8.5.0",
+    "docxtemplater": "3.45.0",
+    "jsdom": "^28.1.0",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.6.0",
+    "pizzip": "3.1.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "@google/genai": "^1.39.0",
-    "mammoth": "1.6.0",
-    "docxtemplater": "3.45.0",
-    "pizzip": "3.1.7",
     "xlsx": "0.18.5",
-    "docx": "8.5.0"
+    "xmldom": "^0.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
