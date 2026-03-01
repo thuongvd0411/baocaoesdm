@@ -1586,24 +1586,28 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
               rowSpan: 2,
               shading: { fill: "70AD47", type: "clear", color: "auto" },
               verticalAlign: VerticalAlign.CENTER,
+              width: { size: 1800, type: WidthType.DXA },
             }),
             new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: "MỤC TIÊU", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               rowSpan: 2,
               shading: { fill: "70AD47", type: "clear", color: "auto" },
               verticalAlign: VerticalAlign.CENTER,
+              width: { size: 3000, type: WidthType.DXA },
             }),
             new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: "KẾT QUẢ", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               columnSpan: 3,
               shading: { fill: "70AD47", type: "clear", color: "auto" },
               verticalAlign: VerticalAlign.CENTER,
+              width: { size: 1200, type: WidthType.DXA },
             }),
             new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: "ĐỀ XUẤT GIA ĐÌNH", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               rowSpan: 2,
               shading: { fill: "70AD47", type: "clear", color: "auto" },
               verticalAlign: VerticalAlign.CENTER,
+              width: { size: 4000, type: WidthType.DXA },
             }),
           ],
           // Explicitly NOT setting tableHeader: true prevents repeating header on page break
@@ -1614,9 +1618,9 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       tableRows.push(
         new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+/-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+/-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
           ]
         })
       );
@@ -1644,6 +1648,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
               children: [new Paragraph({ children: [new TextRun({ text: `${gIdx + 1}. ${group.fieldName}`, bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               rowSpan: group.goals.length,
               verticalAlign: VerticalAlign.TOP,
+              width: { size: 1800, type: WidthType.DXA },
             }));
           }
 
@@ -1653,6 +1658,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
               new Paragraph({ children: [new TextRun({ text: goal.goal, font: "Times New Roman", size: 26 })] })
             ],
             verticalAlign: VerticalAlign.TOP,
+            width: { size: 3000, type: WidthType.DXA },
           }));
 
           // Col 3, 4, 5: Marks
@@ -1660,6 +1666,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
             cells.push(new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: mark, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               verticalAlign: VerticalAlign.CENTER,
+              width: { size: 400, type: WidthType.DXA },
             }));
           });
 
@@ -1675,6 +1682,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
           cells.push(new TableCell({
             children: suggestionParas,
             verticalAlign: VerticalAlign.TOP,
+            width: { size: 4000, type: WidthType.DXA },
           }));
 
           tableRows.push(new TableRow({ children: cells }));
