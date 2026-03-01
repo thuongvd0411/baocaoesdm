@@ -2015,7 +2015,8 @@ const App: React.FC = () => {
           // Ta cần tìm cột "Lĩnh vực" và "Mục tiêu dài hạn" trong vài hàng đầu
           let isPlanTable = false;
           let colIdxLinhVuc = -1;
-          let colIdxMucTieu = -1;
+          let colIdxMucTieuDaiHan = -1;
+          let colIdxMucTieuNganHan = -1;
 
           for (let r = 0; r < Math.min(3, rows.length); r++) {
             const cells = rows[r].getElementsByTagName("w:tc");
@@ -2024,9 +2025,10 @@ const App: React.FC = () => {
               const cellText = cells[c].textContent?.trim().toLowerCase() || "";
               rowText += cellText + " ";
               if (cellText.includes("lĩnh vực")) colIdxLinhVuc = c;
-              if (cellText.includes("mục tiêu dài hạn")) colIdxMucTieu = c;
+              if (cellText.includes("mục tiêu dài hạn") || cellText.includes("mục tiêu chính")) colIdxMucTieuDaiHan = c;
+              if (cellText.includes("mục tiêu ngắn hạn") || cellText.includes("mục tiêu phụ")) colIdxMucTieuNganHan = c;
             }
-            if (colIdxLinhVuc !== -1 && colIdxMucTieu !== -1) {
+            if (colIdxLinhVuc !== -1 && (colIdxMucTieuDaiHan !== -1 || colIdxMucTieuNganHan !== -1)) {
               isPlanTable = true;
               break; // Xác nhận đây là bảng Kế Hoạch
             }
@@ -2039,8 +2041,15 @@ const App: React.FC = () => {
               const cells = rows[r].getElementsByTagName("w:tc");
               if (cells.length === 0) continue;
 
-              let cellLinhVuc = cells[colIdxLinhVuc]?.textContent?.trim() || "";
-              let cellMucTieu = cells[colIdxMucTieu]?.textContent?.trim() || "";
+              let cellLinhVuc = colIdxLinhVuc !== -1 && cells[colIdxLinhVuc] ? cells[colIdxLinhVuc].textContent?.trim() || "" : "";
+
+              // Text mục tiêu: Ưu tiên Mục tiêu ngắn hạn, nếu không có thì lấy dài hạn
+              let cellMucTieu = "";
+              if (colIdxMucTieuNganHan !== -1 && cells[colIdxMucTieuNganHan]) {
+                cellMucTieu = cells[colIdxMucTieuNganHan].textContent?.trim() || "";
+              } else if (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan]) {
+                cellMucTieu = cells[colIdxMucTieuDaiHan].textContent?.trim() || "";
+              }
 
               if (cellLinhVuc.toLowerCase().includes("lĩnh vực") && cellMucTieu.toLowerCase().includes("mục tiêu")) {
                 continue; // Bỏ qua Header
@@ -2050,7 +2059,7 @@ const App: React.FC = () => {
               // Heuristics: nếu ô Lĩnh Vực có nội dung, nó có thể là Lĩnh vực mới. 
               // Thường Word sẽ Merge cell cột Lĩnh vực. Nếu cell đầu tiên có text mà các cell sau (trên cùng cột) ko có text do vMerge=continue, ta sẽ bắt dựa vào text.
 
-              const tcPr = cells[colIdxLinhVuc]?.getElementsByTagName("w:vMerge")[0];
+              const tcPr = colIdxLinhVuc !== -1 && cells[colIdxLinhVuc] ? cells[colIdxLinhVuc].getElementsByTagName("w:vMerge")[0] : null;
               const mergeVal = tcPr?.getAttribute("w:val");
               let isNewField = false;
 
@@ -2073,21 +2082,40 @@ const App: React.FC = () => {
                 fieldIndex++;
               }
 
-              // Xử lý mục tiêu dài hạn
+              // Xử lý mục tiêu dài hạn / ngắn hạn
               if (cellMucTieu && currentFieldGroup) {
                 // Đôi khi mục tiêu bị gộp thành nhiều đoạn văn có số (VD: 1. Làm gì đó \n 2. Làm gì đó)
-                // Tách theo gạch đầu dòng hoặc số (tuỳ ý)
-                // Để đơn giản, ta cho nguyên khối vào 1 mục tiêu (hoặc tách theo newline)
-                const mucTieuLines = cellMucTieu.split(/\n+/).map(line => line.trim()).filter(line => line);
-                if (mucTieuLines.length > 0) {
-                  // Lấy dòng đầu tiên làm đại diện hoặc gộp lại
-                  currentFieldGroup.goals.push({
+                // Cố gắng giữ lại format của word bằng cách lấy từng đoạn
+                const paragraphs = (colIdxMucTieuNganHan !== -1 && cells[colIdxMucTieuNganHan])
+                  ? cells[colIdxMucTieuNganHan].getElementsByTagName("w:p")
+                  : (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan])
+                    ? cells[colIdxMucTieuDaiHan].getElementsByTagName("w:p") : [];
+
+                let goalTextBlocks: string[] = [];
+                for (let p = 0; p < paragraphs.length; p++) {
+                  const txt = paragraphs[p].textContent?.trim() || "";
+                  if (txt) goalTextBlocks.push(txt);
+                }
+                const finalGoalText = goalTextBlocks.length > 0 ? goalTextBlocks.join('\n') : cellMucTieu;
+
+                // Tách các mục tiêu đang dính nhau thành list nếu cần hoặc giữ nguyên
+                let splittedGoals = [finalGoalText];
+                if (finalGoalText.includes('\n') && (finalGoalText.match(/^\d+\./m) || finalGoalText.match(/^-/m) || finalGoalText.match(/^•/m))) {
+                  // Split by line if it seems like a list
+                  splittedGoals = finalGoalText.split('\n').filter(t => t.trim().length > 0);
+                } else if (finalGoalText.includes('\n')) {
+                  // Default split by newline to keep goals cleanly separated if there are multiple lines
+                  splittedGoals = finalGoalText.split('\n').filter(t => t.trim().length > 0);
+                }
+
+                splittedGoals.forEach(g => {
+                  currentFieldGroup!.goals.push({
                     id: Date.now().toString() + Math.random().toString(),
-                    goal: cellMucTieu,
+                    goal: g.trim(),
                     percentage: 0,
                     note: ''
                   });
-                }
+                });
               }
             }
             break; // Chỉ cần quét bảng đầu tiên khớp
@@ -2097,7 +2125,7 @@ const App: React.FC = () => {
         if (foundPlanTable && newFieldGroups.length > 0) {
           setMod3FieldGroups(newFieldGroups);
         } else {
-          alert("Trích xuất text thành công nhưng không tìm thấy bảng có cột 'Lĩnh vực' và 'Mục tiêu dài hạn'.");
+          alert("Trích xuất text thành công nhưng không tìm thấy bảng có cột 'Lĩnh vực' và 'Mục tiêu dài hạn' (hoặc Mục tiêu chính).");
         }
       }
     } catch (e) {
@@ -3030,6 +3058,7 @@ const App: React.FC = () => {
                             type="range"
                             min="0"
                             max="100"
+                            step="5"
                             value={goal.percentage}
                             onChange={(e) => updateGoal(group.id, goal.id, 'percentage', parseInt(e.target.value))}
                             className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
