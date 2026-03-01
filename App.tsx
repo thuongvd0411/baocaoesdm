@@ -1078,7 +1078,7 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
           if (onProgress) onProgress(Math.round(((i + 1) / totalFiles) * 30));
         }
 
-        const ai = new GoogleGenAI({ apiKey: apiKey || process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: apiKey || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY });
         const levelsPrompt = selectedLevels.map(l => `CẤP ĐỘ ${l}`).join(', ');
         const sortedCols = [...selectedColumns].sort((a, b) => a - b);
         const isComparison = sortedCols.length > 1;
@@ -1528,7 +1528,8 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
 `;
 
       // 2. Call Gemini
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const { apiKey } = input.payload;
+      const ai = new GoogleGenAI({ apiKey: apiKey || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: { parts: [{ text: prompt }] },
@@ -1902,7 +1903,12 @@ const App: React.FC = () => {
   };
 
   // --- APP CONTENT IF VERIFIED ---
-  const [appMode, setAppMode] = useState<number>(1); // 1: ESDM Standard, 2: Module 2, 3: Module 3, 4: Module 4
+  const [appMode, setAppMode] = useState<number>(3); // Default to Mode 3 for now since user is focused there
+  const [globalApiKey, setGlobalApiKey] = useState<string>(() => localStorage.getItem("ESDM_API_KEY") || "");
+
+  useEffect(() => {
+    localStorage.setItem("ESDM_API_KEY", globalApiKey);
+  }, [globalApiKey]);
 
   // --- MODE 1 STATE ---
   const [files, setFiles] = useState<File[]>([]);
@@ -2270,7 +2276,7 @@ const App: React.FC = () => {
           files,
           selectedLevels,
           selectedColumns,
-          apiKey: process.env.API_KEY,
+          apiKey: globalApiKey,
           onProgress: (p) => setLoadingProgress(p)
         }
       }, 1);
@@ -2464,6 +2470,7 @@ const App: React.FC = () => {
       const res = await main_controller({
         action: 'GENERATE_REPORT',
         payload: {
+          apiKey: globalApiKey,
           module3Data: {
             childInfo: mod3ChildInfo,
             fieldGroups: mod3FieldGroups
@@ -2654,6 +2661,13 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-indigo-500">ESDM Expert v2.5.0</h1>
           </div>
           <div className="flex items-center gap-2">
+            <input
+              type="password"
+              placeholder="Nhập Gemini API Key..."
+              value={globalApiKey}
+              onChange={(e) => setGlobalApiKey(e.target.value)}
+              className="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+            />
             <select
               value={appMode}
               onChange={(e) => setAppMode(Number(e.target.value))}
