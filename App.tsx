@@ -75,10 +75,14 @@ export interface Mod3ChildInfo {
   dob: string;
   reportMonth: string;
   caregiverTitle: 'bố' | 'mẹ' | 'bố mẹ';
+  evalDate?: string;
+  studentId?: string;
+  styleProposal?: string;
 }
 export interface Module3Data {
   childInfo: Mod3ChildInfo;
   fieldGroups: Mod3FieldGroup[];
+  module3Template?: File;
 }
 
 interface CoreInput {
@@ -88,7 +92,7 @@ interface CoreInput {
     dob?: string;
     evalDate?: string;
     ageFormat?: 'detail' | 'month';
-    
+
     // For ANALYZE (Module 1)
     files?: File[];
     selectedLevels?: number[];
@@ -125,10 +129,10 @@ interface CoreOutput {
   esdmResult?: ESDMResult;
   blob?: Blob;
   filename?: string;
-  
+
   // Output for Module 2
   levelsData?: EsdmLevel[];
-  
+
   // Output for Module 3 (reusing blob/filename)
 
   // Output for Module 4
@@ -151,8 +155,8 @@ function removeVietnameseTones(str: string): string {
   str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, "u");
   str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, "y");
   str = str.replace(/đ/g, "d");
-  str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, ""); 
-  str = str.replace(/\u02C6|\u0306|\u031B/g, ""); 
+  str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, "");
+  str = str.replace(/\u02C6|\u0306|\u031B/g, "");
   return str;
 }
 
@@ -174,7 +178,7 @@ function isDomainLabel(val: any): boolean {
   if (str === '') return false;
   if (isGoalRowIndicator(str)) return false;
   if (isTableHeader(str)) return false;
-  if (!isNaN(Number(str)) && !str.includes(' ')) return false; 
+  if (!isNaN(Number(str)) && !str.includes(' ')) return false;
   return true;
 }
 
@@ -211,7 +215,7 @@ async function autism_module_4(input: CoreInput): Promise<CoreOutput> {
     const arrayBuffer = await mod4File.arrayBuffer();
     const mammothResult = await mammoth.convertToHtml({ arrayBuffer });
     const fullHtml = mammothResult.value;
-    
+
     // Split HTML to find tables.
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = fullHtml;
@@ -222,14 +226,14 @@ async function autism_module_4(input: CoreInput): Promise<CoreOutput> {
     const xmlStr = pzip.file("word/document.xml")?.asText() || "";
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlStr, "application/xml");
-    
+
     const xmlTables = Array.from(doc.getElementsByTagName("w:tbl"));
-    
+
     // 3. Map and Detect Issues
     const tableInfos: Mod4TableInfo[] = xmlTables.map((tbl, idx) => {
       const issues: string[] = [];
       const tblPr = tbl.getElementsByTagName("w:tblPr")[0];
-      
+
       // Check Borders
       const borders = tblPr?.getElementsByTagName("w:tblBorders")[0];
       if (!borders) {
@@ -246,21 +250,21 @@ async function autism_module_4(input: CoreInput): Promise<CoreOutput> {
         let sibling = tbl.nextSibling;
         let gapCount = 0;
         let isCleanGap = true;
-        
-        while (sibling && sibling !== xmlTables[idx+1]) {
-           if (sibling.nodeName === 'w:p') {
-             const text = sibling.textContent || "";
-             if (text.trim().length > 0) { isCleanGap = false; break; }
-             gapCount++;
-           } else if (sibling.nodeName === 'w:tbl') {
-             break; 
-           }
-           sibling = sibling.nextSibling;
+
+        while (sibling && sibling !== xmlTables[idx + 1]) {
+          if (sibling.nodeName === 'w:p') {
+            const text = sibling.textContent || "";
+            if (text.trim().length > 0) { isCleanGap = false; break; }
+            gapCount++;
+          } else if (sibling.nodeName === 'w:tbl') {
+            break;
+          }
+          sibling = sibling.nextSibling;
         }
-        
+
         if (isCleanGap && gapCount < 5) {
-           canMergeNext = true;
-           issues.push("Có thể gộp với bảng dưới");
+          canMergeNext = true;
+          issues.push("Có thể gộp với bảng dưới");
         }
       }
 
@@ -270,12 +274,12 @@ async function autism_module_4(input: CoreInput): Promise<CoreOutput> {
         previewHtml: htmlTables[idx] ? htmlTables[idx].outerHTML : "<p class='text-xs text-gray-400'>Không thể tạo bản xem trước</p>",
         issues,
         canMergeNext,
-        isMergeTarget: false, 
+        isMergeTarget: false,
         options: {
           fixBorders: false,
           fixSpacing: false,
           autofit: false,
-          mergeNext: false, 
+          mergeNext: false,
           fixAlign: false,
           deleteTable: false, // Default false
           rewrite: false, // Default false
@@ -302,385 +306,385 @@ async function autism_module_4(input: CoreInput): Promise<CoreOutput> {
 
     const tblNodeMap = new Map<Element, Mod4TableInfo>();
     const initialDomTables = Array.from(doc.getElementsByTagName("w:tbl"));
-    
+
     // Map initial tables to config
     initialDomTables.forEach((tbl, i) => {
-        const conf = mod4TableConfig.find(c => c.index === i);
-        if (conf) tblNodeMap.set(tbl, conf);
+      const conf = mod4TableConfig.find(c => c.index === i);
+      if (conf) tblNodeMap.set(tbl, conf);
     });
 
     const sortedConfigs = [...mod4TableConfig].sort((a, b) => b.index - a.index);
-    
+
     // Process tables in reverse order to maintain DOM integrity
     for (const conf of sortedConfigs) {
-       const tblNode = Array.from(tblNodeMap.keys()).find(k => tblNodeMap.get(k)?.id === conf.id);
-       if (!tblNode || !tblNode.parentNode) continue;
+      const tblNode = Array.from(tblNodeMap.keys()).find(k => tblNodeMap.get(k)?.id === conf.id);
+      if (!tblNode || !tblNode.parentNode) continue;
 
-       // 1. DELETE TABLE
-       if (conf.options.deleteTable) {
-           tblNode.parentNode.removeChild(tblNode);
-           continue; 
-       }
+      // 1. DELETE TABLE
+      if (conf.options.deleteTable) {
+        tblNode.parentNode.removeChild(tblNode);
+        continue;
+      }
 
-       // 2. MATRIX MODE (REPLACE)
-       if (conf.options.matrixMode && conf.options.matrixType === 'replace') {
-           // Construct new Matrix Table XML
-           const newTbl = doc.createElement("w:tbl");
-           
-           // Properties
-           const tblPr = doc.createElement("w:tblPr");
-           // Width 95% = 4750
-           const tblW = doc.createElement("w:tblW"); tblW.setAttribute("w:w", "4750"); tblW.setAttribute("w:type", "pct"); tblPr.appendChild(tblW);
-           // Center
-           const jc = doc.createElement("w:jc"); jc.setAttribute("w:val", "center"); tblPr.appendChild(jc);
-           // Borders
-           const borders = doc.createElement("w:tblBorders");
-           ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].forEach(b => {
-               const brd = doc.createElement(`w:${b}`);
-               brd.setAttribute("w:val", "single"); brd.setAttribute("w:sz", "4"); brd.setAttribute("w:space", "0"); brd.setAttribute("w:color", "auto");
-               borders.appendChild(brd);
-           });
-           tblPr.appendChild(borders);
-           newTbl.appendChild(tblPr);
+      // 2. MATRIX MODE (REPLACE)
+      if (conf.options.matrixMode && conf.options.matrixType === 'replace') {
+        // Construct new Matrix Table XML
+        const newTbl = doc.createElement("w:tbl");
 
-           // Grid (3 cols equal)
-           const tblGrid = doc.createElement("w:tblGrid");
-           for(let i=0; i<3; i++) {
-               const gridCol = doc.createElement("w:gridCol");
-               gridCol.setAttribute("w:w", "3133"); // Approx 1/3
-               tblGrid.appendChild(gridCol);
-           }
-           newTbl.appendChild(tblGrid);
+        // Properties
+        const tblPr = doc.createElement("w:tblPr");
+        // Width 95% = 4750
+        const tblW = doc.createElement("w:tblW"); tblW.setAttribute("w:w", "4750"); tblW.setAttribute("w:type", "pct"); tblPr.appendChild(tblW);
+        // Center
+        const jc = doc.createElement("w:jc"); jc.setAttribute("w:val", "center"); tblPr.appendChild(jc);
+        // Borders
+        const borders = doc.createElement("w:tblBorders");
+        ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].forEach(b => {
+          const brd = doc.createElement(`w:${b}`);
+          brd.setAttribute("w:val", "single"); brd.setAttribute("w:sz", "4"); brd.setAttribute("w:space", "0"); brd.setAttribute("w:color", "auto");
+          borders.appendChild(brd);
+        });
+        tblPr.appendChild(borders);
+        newTbl.appendChild(tblPr);
 
-           // Header Row
-           const headerTr = doc.createElement("w:tr");
-           MATRIX_DATA.columns.forEach(colName => {
-               const tc = doc.createElement("w:tc");
-               const tcPr = doc.createElement("w:tcPr");
-               const vAlign = doc.createElement("w:vAlign"); vAlign.setAttribute("w:val", "center"); tcPr.appendChild(vAlign);
-               tc.appendChild(tcPr);
-               
-               const p = doc.createElement("w:p");
-               const pPr = doc.createElement("w:pPr");
-               const pJc = doc.createElement("w:jc"); pJc.setAttribute("w:val", "center"); pPr.appendChild(pJc);
-               p.appendChild(pPr);
-               
-               const r = doc.createElement("w:r");
-               const rPr = doc.createElement("w:rPr");
-               const rFonts = doc.createElement("w:rFonts"); rFonts.setAttribute("w:ascii", "Times New Roman"); rFonts.setAttribute("w:hAnsi", "Times New Roman"); rPr.appendChild(rFonts);
-               const b = doc.createElement("w:b"); rPr.appendChild(b);
-               const sz = doc.createElement("w:sz"); sz.setAttribute("w:val", "26"); rPr.appendChild(sz);
-               r.appendChild(rPr);
-               const t = doc.createElement("w:t"); t.textContent = colName; r.appendChild(t);
-               p.appendChild(r);
-               tc.appendChild(p);
-               headerTr.appendChild(tc);
-           });
-           newTbl.appendChild(headerTr);
+        // Grid (3 cols equal)
+        const tblGrid = doc.createElement("w:tblGrid");
+        for (let i = 0; i < 3; i++) {
+          const gridCol = doc.createElement("w:gridCol");
+          gridCol.setAttribute("w:w", "3133"); // Approx 1/3
+          tblGrid.appendChild(gridCol);
+        }
+        newTbl.appendChild(tblGrid);
 
-           // Data Rows
-           MATRIX_DATA.rows.forEach((rowItems, rIdx) => {
-               const tr = doc.createElement("w:tr");
-               rowItems.forEach((itemText, cIdx) => {
-                   const tc = doc.createElement("w:tc");
-                   
-                   // Label Paragraph (Bold, Centered)
-                   const pLabel = doc.createElement("w:p");
-                   const pPrLabel = doc.createElement("w:pPr");
-                   const jcLabel = doc.createElement("w:jc"); jcLabel.setAttribute("w:val", "center"); pPrLabel.appendChild(jcLabel);
-                   pLabel.appendChild(pPrLabel);
-                   const rLabel = doc.createElement("w:r");
-                   const rPrLabel = doc.createElement("w:rPr");
-                   const rfLabel = doc.createElement("w:rFonts"); rfLabel.setAttribute("w:ascii", "Times New Roman"); rfLabel.setAttribute("w:hAnsi", "Times New Roman"); rPrLabel.appendChild(rfLabel);
-                   const bLabel = doc.createElement("w:b"); rPrLabel.appendChild(bLabel);
-                   const szLabel = doc.createElement("w:sz"); szLabel.setAttribute("w:val", "26"); rPrLabel.appendChild(szLabel);
-                   rLabel.appendChild(rPrLabel);
-                   const tLabel = doc.createElement("w:t"); tLabel.textContent = itemText; rLabel.appendChild(tLabel);
-                   pLabel.appendChild(rLabel);
-                   tc.appendChild(pLabel);
+        // Header Row
+        const headerTr = doc.createElement("w:tr");
+        MATRIX_DATA.columns.forEach(colName => {
+          const tc = doc.createElement("w:tc");
+          const tcPr = doc.createElement("w:tcPr");
+          const vAlign = doc.createElement("w:vAlign"); vAlign.setAttribute("w:val", "center"); tcPr.appendChild(vAlign);
+          tc.appendChild(tcPr);
 
-                   // Score Paragraph (0 1 2+)
-                   // 0: Left, 1: Center, 2+: Right
-                   const pScore = doc.createElement("w:p");
-                   const pPrScore = doc.createElement("w:pPr");
-                   
-                   // Tabs setup: Center tab approx middle, Right tab at edge
-                   const tabs = doc.createElement("w:tabs");
-                   const tab1 = doc.createElement("w:tab"); tab1.setAttribute("w:val", "center"); tab1.setAttribute("w:pos", "1566"); // Half of 3133
-                   const tab2 = doc.createElement("w:tab"); tab2.setAttribute("w:val", "right"); tab2.setAttribute("w:pos", "3133");
-                   tabs.appendChild(tab1); tabs.appendChild(tab2);
-                   pPrScore.appendChild(tabs);
-                   pScore.appendChild(pPrScore);
+          const p = doc.createElement("w:p");
+          const pPr = doc.createElement("w:pPr");
+          const pJc = doc.createElement("w:jc"); pJc.setAttribute("w:val", "center"); pPr.appendChild(pJc);
+          p.appendChild(pPr);
 
-                   const items = ["0", "1", "2+"];
-                   items.forEach((val, vIdx) => {
-                       // Separator tabs for 2nd and 3rd item
-                       if (vIdx > 0) {
-                           const rTab = doc.createElement("w:r");
-                           const rPrTab = doc.createElement("w:rPr");
-                           const rfTab = doc.createElement("w:rFonts"); rfTab.setAttribute("w:ascii", "Times New Roman"); rfTab.setAttribute("w:hAnsi", "Times New Roman"); rPrTab.appendChild(rfTab);
-                           const szTab = doc.createElement("w:sz"); szTab.setAttribute("w:val", "26"); rPrTab.appendChild(szTab);
-                           rTab.appendChild(rPrTab);
-                           const tTab = doc.createElement("w:tab"); 
-                           rTab.appendChild(tTab);
-                           pScore.appendChild(rTab);
-                       }
+          const r = doc.createElement("w:r");
+          const rPr = doc.createElement("w:rPr");
+          const rFonts = doc.createElement("w:rFonts"); rFonts.setAttribute("w:ascii", "Times New Roman"); rFonts.setAttribute("w:hAnsi", "Times New Roman"); rPr.appendChild(rFonts);
+          const b = doc.createElement("w:b"); rPr.appendChild(b);
+          const sz = doc.createElement("w:sz"); sz.setAttribute("w:val", "26"); rPr.appendChild(sz);
+          r.appendChild(rPr);
+          const t = doc.createElement("w:t"); t.textContent = colName; r.appendChild(t);
+          p.appendChild(r);
+          tc.appendChild(p);
+          headerTr.appendChild(tc);
+        });
+        newTbl.appendChild(headerTr);
 
-                       const rVal = doc.createElement("w:r");
-                       const rPrVal = doc.createElement("w:rPr");
-                       const rfVal = doc.createElement("w:rFonts"); rfVal.setAttribute("w:ascii", "Times New Roman"); rfVal.setAttribute("w:hAnsi", "Times New Roman"); rPrVal.appendChild(rfVal);
-                       const szVal = doc.createElement("w:sz"); szVal.setAttribute("w:val", "26"); rPrVal.appendChild(szVal);
-                       
-                       // Color Logic
-                       const key = `${cIdx}_${rIdx}_${val}`;
-                       if (conf.options.matrixHighlights[key]) {
-                           const color = doc.createElement("w:color");
-                           color.setAttribute("w:val", "FF0000");
-                           rPrVal.appendChild(color);
-                           // Force bold for red items? User says "chữ đều set in đậm, các số... in thường". 
-                           // But usually highlighted scores are bolded. Let's keep normal as requested unless user changes mind.
-                           // Actually, "Tô đỏ phần tử được chọn" usually implies just color.
-                       }
-                       
-                       rVal.appendChild(rPrVal);
-                       const tVal = doc.createElement("w:t"); tVal.textContent = val; rVal.appendChild(tVal);
-                       pScore.appendChild(rVal);
-                   });
-                   tc.appendChild(pScore);
-                   tr.appendChild(tc);
-               });
-               newTbl.appendChild(tr);
-           });
+        // Data Rows
+        MATRIX_DATA.rows.forEach((rowItems, rIdx) => {
+          const tr = doc.createElement("w:tr");
+          rowItems.forEach((itemText, cIdx) => {
+            const tc = doc.createElement("w:tc");
 
-           tblNode.parentNode.replaceChild(newTbl, tblNode);
-           continue; // Done with this table
-       }
+            // Label Paragraph (Bold, Centered)
+            const pLabel = doc.createElement("w:p");
+            const pPrLabel = doc.createElement("w:pPr");
+            const jcLabel = doc.createElement("w:jc"); jcLabel.setAttribute("w:val", "center"); pPrLabel.appendChild(jcLabel);
+            pLabel.appendChild(pPrLabel);
+            const rLabel = doc.createElement("w:r");
+            const rPrLabel = doc.createElement("w:rPr");
+            const rfLabel = doc.createElement("w:rFonts"); rfLabel.setAttribute("w:ascii", "Times New Roman"); rfLabel.setAttribute("w:hAnsi", "Times New Roman"); rPrLabel.appendChild(rfLabel);
+            const bLabel = doc.createElement("w:b"); rPrLabel.appendChild(bLabel);
+            const szLabel = doc.createElement("w:sz"); szLabel.setAttribute("w:val", "26"); rPrLabel.appendChild(szLabel);
+            rLabel.appendChild(rPrLabel);
+            const tLabel = doc.createElement("w:t"); tLabel.textContent = itemText; rLabel.appendChild(tLabel);
+            pLabel.appendChild(rLabel);
+            tc.appendChild(pLabel);
 
-       // 3. MERGE NEXT
-       if (conf.options.mergeNext) {
-           let sibling = tblNode.nextSibling;
-           const gapNodes: Node[] = [];
-           let targetTbl: Element | null = null;
-           while (sibling) {
-               if (sibling.nodeName === 'w:tbl') { targetTbl = sibling as unknown as Element; break; }
-               gapNodes.push(sibling);
-               sibling = sibling.nextSibling;
-           }
+            // Score Paragraph (0 1 2+)
+            // 0: Left, 1: Center, 2+: Right
+            const pScore = doc.createElement("w:p");
+            const pPrScore = doc.createElement("w:pPr");
 
-           if (targetTbl) {
-               const rows = Array.from(targetTbl.getElementsByTagName("w:tr"));
-               rows.forEach(r => tblNode.appendChild(r));
-               gapNodes.forEach(n => n.parentNode?.removeChild(n));
-               targetTbl.parentNode?.removeChild(targetTbl);
-           }
-       }
+            // Tabs setup: Center tab approx middle, Right tab at edge
+            const tabs = doc.createElement("w:tabs");
+            const tab1 = doc.createElement("w:tab"); tab1.setAttribute("w:val", "center"); tab1.setAttribute("w:pos", "1566"); // Half of 3133
+            const tab2 = doc.createElement("w:tab"); tab2.setAttribute("w:val", "right"); tab2.setAttribute("w:pos", "3133");
+            tabs.appendChild(tab1); tabs.appendChild(tab2);
+            pPrScore.appendChild(tabs);
+            pScore.appendChild(pPrScore);
 
-       // 4. APPLY STYLES TO EXISTING TABLE
-       let tblPr = tblNode.getElementsByTagName("w:tblPr")[0];
-       if (!tblPr) {
-            tblPr = doc.createElement("w:tblPr");
-            tblNode.insertBefore(tblPr, tblNode.firstChild);
-       }
+            const items = ["0", "1", "2+"];
+            items.forEach((val, vIdx) => {
+              // Separator tabs for 2nd and 3rd item
+              if (vIdx > 0) {
+                const rTab = doc.createElement("w:r");
+                const rPrTab = doc.createElement("w:rPr");
+                const rfTab = doc.createElement("w:rFonts"); rfTab.setAttribute("w:ascii", "Times New Roman"); rfTab.setAttribute("w:hAnsi", "Times New Roman"); rPrTab.appendChild(rfTab);
+                const szTab = doc.createElement("w:sz"); szTab.setAttribute("w:val", "26"); rPrTab.appendChild(szTab);
+                rTab.appendChild(rPrTab);
+                const tTab = doc.createElement("w:tab");
+                rTab.appendChild(tTab);
+                pScore.appendChild(rTab);
+              }
 
-       // A. FIX BORDERS (ENHANCED)
-       if (conf.options.fixBorders) {
-            const existingBorders = tblPr.getElementsByTagName("w:tblBorders")[0];
-            if (existingBorders) tblPr.removeChild(existingBorders);
-            
-            const newBorders = doc.createElement("w:tblBorders");
-            ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].forEach(border => {
-                const b = doc.createElement(`w:${border}`);
-                b.setAttribute("w:val", "single");
-                b.setAttribute("w:sz", "4"); // 1/2 pt
-                b.setAttribute("w:space", "0");
-                b.setAttribute("w:color", "auto");
-                newBorders.appendChild(b);
+              const rVal = doc.createElement("w:r");
+              const rPrVal = doc.createElement("w:rPr");
+              const rfVal = doc.createElement("w:rFonts"); rfVal.setAttribute("w:ascii", "Times New Roman"); rfVal.setAttribute("w:hAnsi", "Times New Roman"); rPrVal.appendChild(rfVal);
+              const szVal = doc.createElement("w:sz"); szVal.setAttribute("w:val", "26"); rPrVal.appendChild(szVal);
+
+              // Color Logic
+              const key = `${cIdx}_${rIdx}_${val}`;
+              if (conf.options.matrixHighlights[key]) {
+                const color = doc.createElement("w:color");
+                color.setAttribute("w:val", "FF0000");
+                rPrVal.appendChild(color);
+                // Force bold for red items? User says "chữ đều set in đậm, các số... in thường". 
+                // But usually highlighted scores are bolded. Let's keep normal as requested unless user changes mind.
+                // Actually, "Tô đỏ phần tử được chọn" usually implies just color.
+              }
+
+              rVal.appendChild(rPrVal);
+              const tVal = doc.createElement("w:t"); tVal.textContent = val; rVal.appendChild(tVal);
+              pScore.appendChild(rVal);
             });
-            tblPr.appendChild(newBorders);
+            tc.appendChild(pScore);
+            tr.appendChild(tc);
+          });
+          newTbl.appendChild(tr);
+        });
 
-            // Also ensure NO conflicting cell borders
-            const cells = Array.from(tblNode.getElementsByTagName("w:tc"));
-            cells.forEach(cell => {
-                const tcPr = cell.getElementsByTagName("w:tcPr")[0];
-                if (tcPr) {
-                    const tcBorders = tcPr.getElementsByTagName("w:tcBorders")[0];
-                    if (tcBorders) tcPr.removeChild(tcBorders);
-                }
+        tblNode.parentNode.replaceChild(newTbl, tblNode);
+        continue; // Done with this table
+      }
+
+      // 3. MERGE NEXT
+      if (conf.options.mergeNext) {
+        let sibling = tblNode.nextSibling;
+        const gapNodes: Node[] = [];
+        let targetTbl: Element | null = null;
+        while (sibling) {
+          if (sibling.nodeName === 'w:tbl') { targetTbl = sibling as unknown as Element; break; }
+          gapNodes.push(sibling);
+          sibling = sibling.nextSibling;
+        }
+
+        if (targetTbl) {
+          const rows = Array.from(targetTbl.getElementsByTagName("w:tr"));
+          rows.forEach(r => tblNode.appendChild(r));
+          gapNodes.forEach(n => n.parentNode?.removeChild(n));
+          targetTbl.parentNode?.removeChild(targetTbl);
+        }
+      }
+
+      // 4. APPLY STYLES TO EXISTING TABLE
+      let tblPr = tblNode.getElementsByTagName("w:tblPr")[0];
+      if (!tblPr) {
+        tblPr = doc.createElement("w:tblPr");
+        tblNode.insertBefore(tblPr, tblNode.firstChild);
+      }
+
+      // A. FIX BORDERS (ENHANCED)
+      if (conf.options.fixBorders) {
+        const existingBorders = tblPr.getElementsByTagName("w:tblBorders")[0];
+        if (existingBorders) tblPr.removeChild(existingBorders);
+
+        const newBorders = doc.createElement("w:tblBorders");
+        ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].forEach(border => {
+          const b = doc.createElement(`w:${border}`);
+          b.setAttribute("w:val", "single");
+          b.setAttribute("w:sz", "4"); // 1/2 pt
+          b.setAttribute("w:space", "0");
+          b.setAttribute("w:color", "auto");
+          newBorders.appendChild(b);
+        });
+        tblPr.appendChild(newBorders);
+
+        // Also ensure NO conflicting cell borders
+        const cells = Array.from(tblNode.getElementsByTagName("w:tc"));
+        cells.forEach(cell => {
+          const tcPr = cell.getElementsByTagName("w:tcPr")[0];
+          if (tcPr) {
+            const tcBorders = tcPr.getElementsByTagName("w:tcBorders")[0];
+            if (tcBorders) tcPr.removeChild(tcBorders);
+          }
+        });
+      }
+
+      // B. AUTOFIT
+      if (conf.options.autofit) {
+        let tblW = tblPr.getElementsByTagName("w:tblW")[0];
+        if (!tblW) { tblW = doc.createElement("w:tblW"); tblPr.appendChild(tblW); }
+        tblW.setAttribute("w:w", "4250"); // 85%
+        tblW.setAttribute("w:type", "pct");
+
+        let jc = tblPr.getElementsByTagName("w:jc")[0];
+        if (!jc) { jc = doc.createElement("w:jc"); tblPr.appendChild(jc); }
+        jc.setAttribute("w:val", "center");
+
+        const layout = tblPr.getElementsByTagName("w:tblLayout")[0];
+        if (layout) tblPr.removeChild(layout);
+      }
+
+      // C. FIX SPACING
+      if (conf.options.fixSpacing) {
+        let cellMar = tblPr.getElementsByTagName("w:tblCellMar")[0];
+        if (!cellMar) { cellMar = doc.createElement("w:tblCellMar"); tblPr.appendChild(cellMar); }
+        // Remove existing
+        while (cellMar.firstChild) cellMar.removeChild(cellMar.firstChild);
+
+        const margins = { top: 50, bottom: 50, left: 100, right: 100 };
+        Object.entries(margins).forEach(([side, val]) => {
+          let m = doc.createElement(`w:${side}`);
+          m.setAttribute("w:w", String(val));
+          m.setAttribute("w:type", "dxa");
+          cellMar.appendChild(m);
+        });
+      }
+
+      // D. FIX ALIGN & REWRITE & HIGHLIGHT EXISTING MATRIX
+      const rows = Array.from(tblNode.getElementsByTagName("w:tr"));
+      rows.forEach((row, rIdx) => {
+        const cells = Array.from(row.getElementsByTagName("w:tc"));
+        cells.forEach((cell, cIdx) => {
+          // Skip R0/C0 for specific actions
+          const isHeaderOrFirstCol = rIdx === 0 || cIdx === 0;
+
+          // REWRITE LOGIC
+          if (conf.options.rewrite && !isHeaderOrFirstCol) {
+            // Extract text
+            let fullText = "";
+            const paras = Array.from(cell.getElementsByTagName("w:p"));
+            paras.forEach(p => {
+              fullText += (p.textContent || "") + "\n";
             });
-       }
 
-       // B. AUTOFIT
-       if (conf.options.autofit) {
-            let tblW = tblPr.getElementsByTagName("w:tblW")[0];
-            if (!tblW) { tblW = doc.createElement("w:tblW"); tblPr.appendChild(tblW); }
-            tblW.setAttribute("w:w", "4250"); // 85%
-            tblW.setAttribute("w:type", "pct");
-            
-            let jc = tblPr.getElementsByTagName("w:jc")[0];
-            if (!jc) { jc = doc.createElement("w:jc"); tblPr.appendChild(jc); }
-            jc.setAttribute("w:val", "center");
-            
-            const layout = tblPr.getElementsByTagName("w:tblLayout")[0];
-            if (layout) tblPr.removeChild(layout);
-       }
+            // Clean text: remove bullet chars, trim, filter empty lines
+            const lines = fullText.split('\n')
+              .map(l => l.replace(/^[-+•*]\s*/, '').trim())
+              .filter(l => l.length > 0);
 
-       // C. FIX SPACING
-       if (conf.options.fixSpacing) {
-            let cellMar = tblPr.getElementsByTagName("w:tblCellMar")[0];
-            if (!cellMar) { cellMar = doc.createElement("w:tblCellMar"); tblPr.appendChild(cellMar); }
-            // Remove existing
-            while (cellMar.firstChild) cellMar.removeChild(cellMar.firstChild);
-            
-            const margins = { top: 50, bottom: 50, left: 100, right: 100 };
-            Object.entries(margins).forEach(([side, val]) => {
-                 let m = doc.createElement(`w:${side}`);
-                 m.setAttribute("w:w", String(val));
-                 m.setAttribute("w:type", "dxa");
-                 cellMar.appendChild(m);
+            // Clear cell content
+            while (cell.firstChild) cell.removeChild(cell.firstChild);
+
+            // Rebuild paragraphs
+            // Logic: First line no bullet, subsequent lines have hyphen
+            if (lines.length > 0) {
+              lines.forEach((line, lIdx) => {
+                const p = doc.createElement("w:p");
+                const pPr = doc.createElement("w:pPr");
+
+                // Align Justify or Left? Standard text usually justified or left.
+                // User says "trình bày đúng tiêu chuẩn word... xuống dòng như văn bản gốc".
+                const pJc = doc.createElement("w:jc"); pJc.setAttribute("w:val", "both"); pPr.appendChild(pJc);
+                const spacing = doc.createElement("w:spacing"); spacing.setAttribute("w:after", "0"); pPr.appendChild(spacing); // tight lines? Or normal? User said "tách ý"
+                // If multiple lines, maybe add spacing between? "40" after is good.
+                if (lines.length > 1) spacing.setAttribute("w:after", "100");
+
+                p.appendChild(pPr);
+
+                const r = doc.createElement("w:r");
+                const rPr = doc.createElement("w:rPr");
+                const rFonts = doc.createElement("w:rFonts"); rFonts.setAttribute("w:ascii", "Times New Roman"); rFonts.setAttribute("w:hAnsi", "Times New Roman"); rPr.appendChild(rFonts);
+                const sz = doc.createElement("w:sz"); sz.setAttribute("w:val", "26"); rPr.appendChild(sz);
+                r.appendChild(rPr);
+
+                const textContent = (lIdx > 0 ? "- " : "") + line;
+                const t = doc.createElement("w:t"); t.textContent = textContent; r.appendChild(t);
+
+                p.appendChild(r);
+                cell.appendChild(p);
+              });
+            } else {
+              // Ensure cell is not empty (invalid xml)
+              const p = doc.createElement("w:p");
+              cell.appendChild(p);
+            }
+          }
+
+          // FIX ALIGN (INDENTS)
+          if (conf.options.fixAlign && !isHeaderOrFirstCol) {
+            const paras = Array.from(cell.getElementsByTagName("w:p"));
+            paras.forEach(p => {
+              let pPr = p.getElementsByTagName("w:pPr")[0];
+              if (!pPr) { pPr = doc.createElement("w:pPr"); p.insertBefore(pPr, p.firstChild); }
+
+              // Remove indents and tabs
+              const ind = pPr.getElementsByTagName("w:ind")[0];
+              if (ind) pPr.removeChild(ind);
+              const tabs = pPr.getElementsByTagName("w:tabs")[0];
+              if (tabs) pPr.removeChild(tabs);
+
+              // Reset to 0
+              const newInd = doc.createElement("w:ind");
+              newInd.setAttribute("w:left", "0");
+              newInd.setAttribute("w:hanging", "0");
+              pPr.appendChild(newInd);
             });
-       }
+          }
 
-       // D. FIX ALIGN & REWRITE & HIGHLIGHT EXISTING MATRIX
-       const rows = Array.from(tblNode.getElementsByTagName("w:tr"));
-       rows.forEach((row, rIdx) => {
-           const cells = Array.from(row.getElementsByTagName("w:tc"));
-           cells.forEach((cell, cIdx) => {
-               // Skip R0/C0 for specific actions
-               const isHeaderOrFirstCol = rIdx === 0 || cIdx === 0;
+          // EXISTING MATRIX HIGHLIGHT (Tô đỏ)
+          // Only applies if not replacing the table, but user selected Matrix Mode + Highlight
+          // Note: This relies on matching text content "0", "1", "2+" in an existing table, which is tricky.
+          // The requirement says: "Tô đỏ": cho phép tô vào phần tử trực tiếp từ màn hình preview (trường hợp này đã xác định bảng ma trận là chuẩn rồi).
+          // So we assume the structure is standard. We traverse 0, 1, 2+ texts.
+          // Since we don't know exact mapping of existing table cells to matrix keys, this is best effort or strict mapping if dimensions match.
+          // Given constraints, if "Matrix Mode" + "Highlight" is on, we try to match text in cell.
+          /* 
+             However, "Highlight" implies we modify the XML of the CURRENT table. 
+             If the table structure isn't exactly the matrix, keys like `0_0_0` might not map correctly.
+             For "Highlight" on existing table, we'll iterate cells, if cell text contains "0" "1" "2+", we look up config.
+             BUT, simpler approach: The preview for "Highlight" should probably match the structure. 
+             If the user selects "Highlight", we assume the table IS a matrix table. 
+             We will assume standard grid 3 cols.
+          */
+          if (conf.options.matrixMode && conf.options.matrixType === 'highlight') {
+            // Check if we have a highlight for this cell
+            // cIdx, rIdx (offset by header?) 
+            // The Matrix Data has 7 rows. Table might have 8 (Header + 7).
+            if (rIdx > 0 && cIdx < 3) {
+              const matrixR = rIdx - 1;
+              const matrixC = cIdx;
 
-               // REWRITE LOGIC
-               if (conf.options.rewrite && !isHeaderOrFirstCol) {
-                   // Extract text
-                   let fullText = "";
-                   const paras = Array.from(cell.getElementsByTagName("w:p"));
-                   paras.forEach(p => {
-                       fullText += (p.textContent || "") + "\n";
-                   });
-                   
-                   // Clean text: remove bullet chars, trim, filter empty lines
-                   const lines = fullText.split('\n')
-                       .map(l => l.replace(/^[-+•*]\s*/, '').trim())
-                       .filter(l => l.length > 0);
-                   
-                   // Clear cell content
-                   while (cell.firstChild) cell.removeChild(cell.firstChild);
-                   
-                   // Rebuild paragraphs
-                   // Logic: First line no bullet, subsequent lines have hyphen
-                   if (lines.length > 0) {
-                        lines.forEach((line, lIdx) => {
-                            const p = doc.createElement("w:p");
-                            const pPr = doc.createElement("w:pPr");
-                            
-                            // Align Justify or Left? Standard text usually justified or left.
-                            // User says "trình bày đúng tiêu chuẩn word... xuống dòng như văn bản gốc".
-                            const pJc = doc.createElement("w:jc"); pJc.setAttribute("w:val", "both"); pPr.appendChild(pJc);
-                            const spacing = doc.createElement("w:spacing"); spacing.setAttribute("w:after", "0"); pPr.appendChild(spacing); // tight lines? Or normal? User said "tách ý"
-                            // If multiple lines, maybe add spacing between? "40" after is good.
-                            if (lines.length > 1) spacing.setAttribute("w:after", "100");
-                            
-                            p.appendChild(pPr);
-                            
-                            const r = doc.createElement("w:r");
-                            const rPr = doc.createElement("w:rPr");
-                            const rFonts = doc.createElement("w:rFonts"); rFonts.setAttribute("w:ascii", "Times New Roman"); rFonts.setAttribute("w:hAnsi", "Times New Roman"); rPr.appendChild(rFonts);
-                            const sz = doc.createElement("w:sz"); sz.setAttribute("w:val", "26"); rPr.appendChild(sz);
-                            r.appendChild(rPr);
-                            
-                            const textContent = (lIdx > 0 ? "- " : "") + line;
-                            const t = doc.createElement("w:t"); t.textContent = textContent; r.appendChild(t);
-                            
-                            p.appendChild(r);
-                            cell.appendChild(p);
-                        });
-                   } else {
-                       // Ensure cell is not empty (invalid xml)
-                       const p = doc.createElement("w:p");
-                       cell.appendChild(p);
-                   }
-               }
-               
-               // FIX ALIGN (INDENTS)
-               if (conf.options.fixAlign && !isHeaderOrFirstCol) {
-                    const paras = Array.from(cell.getElementsByTagName("w:p"));
-                    paras.forEach(p => {
-                        let pPr = p.getElementsByTagName("w:pPr")[0];
-                        if (!pPr) { pPr = doc.createElement("w:pPr"); p.insertBefore(pPr, p.firstChild); }
-                        
-                        // Remove indents and tabs
-                        const ind = pPr.getElementsByTagName("w:ind")[0];
-                        if (ind) pPr.removeChild(ind);
-                        const tabs = pPr.getElementsByTagName("w:tabs")[0];
-                        if (tabs) pPr.removeChild(tabs);
-
-                        // Reset to 0
-                        const newInd = doc.createElement("w:ind");
-                        newInd.setAttribute("w:left", "0");
-                        newInd.setAttribute("w:hanging", "0");
-                        pPr.appendChild(newInd);
-                    });
-               }
-
-               // EXISTING MATRIX HIGHLIGHT (Tô đỏ)
-               // Only applies if not replacing the table, but user selected Matrix Mode + Highlight
-               // Note: This relies on matching text content "0", "1", "2+" in an existing table, which is tricky.
-               // The requirement says: "Tô đỏ": cho phép tô vào phần tử trực tiếp từ màn hình preview (trường hợp này đã xác định bảng ma trận là chuẩn rồi).
-               // So we assume the structure is standard. We traverse 0, 1, 2+ texts.
-               // Since we don't know exact mapping of existing table cells to matrix keys, this is best effort or strict mapping if dimensions match.
-               // Given constraints, if "Matrix Mode" + "Highlight" is on, we try to match text in cell.
-               /* 
-                  However, "Highlight" implies we modify the XML of the CURRENT table. 
-                  If the table structure isn't exactly the matrix, keys like `0_0_0` might not map correctly.
-                  For "Highlight" on existing table, we'll iterate cells, if cell text contains "0" "1" "2+", we look up config.
-                  BUT, simpler approach: The preview for "Highlight" should probably match the structure. 
-                  If the user selects "Highlight", we assume the table IS a matrix table. 
-                  We will assume standard grid 3 cols.
-               */
-               if (conf.options.matrixMode && conf.options.matrixType === 'highlight') {
-                   // Check if we have a highlight for this cell
-                   // cIdx, rIdx (offset by header?) 
-                   // The Matrix Data has 7 rows. Table might have 8 (Header + 7).
-                   if (rIdx > 0 && cIdx < 3) {
-                       const matrixR = rIdx - 1; 
-                       const matrixC = cIdx;
-                       
-                       const paras = Array.from(cell.getElementsByTagName("w:p"));
-                       paras.forEach(p => {
-                           const runs = Array.from(p.getElementsByTagName("w:r"));
-                           runs.forEach(r => {
-                               const text = (r.textContent || "").trim();
-                               if (['0', '1', '2+'].includes(text)) {
-                                   const key = `${matrixC}_${matrixR}_${text}`;
-                                   if (conf.options.matrixHighlights[key]) {
-                                       let rPr = r.getElementsByTagName("w:rPr")[0];
-                                       if (!rPr) { rPr = doc.createElement("w:rPr"); r.insertBefore(rPr, r.firstChild); }
-                                       const color = doc.createElement("w:color");
-                                       color.setAttribute("w:val", "FF0000");
-                                       rPr.appendChild(color);
-                                   }
-                               }
-                           });
-                       });
-                   }
-               }
-           });
-       });
+              const paras = Array.from(cell.getElementsByTagName("w:p"));
+              paras.forEach(p => {
+                const runs = Array.from(p.getElementsByTagName("w:r"));
+                runs.forEach(r => {
+                  const text = (r.textContent || "").trim();
+                  if (['0', '1', '2+'].includes(text)) {
+                    const key = `${matrixC}_${matrixR}_${text}`;
+                    if (conf.options.matrixHighlights[key]) {
+                      let rPr = r.getElementsByTagName("w:rPr")[0];
+                      if (!rPr) { rPr = doc.createElement("w:rPr"); r.insertBefore(rPr, r.firstChild); }
+                      const color = doc.createElement("w:color");
+                      color.setAttribute("w:val", "FF0000");
+                      rPr.appendChild(color);
+                    }
+                  }
+                });
+              });
+            }
+          }
+        });
+      });
     }
 
     // 4. Serialize and Save
     const newXml = serializer.serializeToString(doc);
     pzip.file("word/document.xml", newXml);
-    
+
     const outBlob = pzip.generate({
-        type: "blob",
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      type: "blob",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
-    
+
     const originalName = mod4File.name.substring(0, mod4File.name.lastIndexOf('.')) || "doc";
     return { blob: outBlob, filename: `${originalName}_fixed.docx` };
   }
 
-  return { };
+  return {};
 }
 
 // --- MAIN CONTROLLER (CONSOLIDATED LOGIC) ---
@@ -688,34 +692,34 @@ async function autism_module_4(input: CoreInput): Promise<CoreOutput> {
 async function main_controller(input: CoreInput, mode: number): Promise<CoreOutput> {
   // --- MODULE 1, 2, 3 ---
   if (mode === 1 || mode === 2 || mode === 3) {
-      // ... (Rest of Mode 1, 2, 3 logic remains exactly as is, hidden for brevity as instructed to only change mode 4)
-      // Re-implementing strictly to ensure file integrity.
-      // Since I must output the full file content, I will copy the logic from the prompt's source file for modes 1,2,3.
-      
-      // ... [Insert existing logic for Mode 1, 2, 3 here] ...
-      // For the sake of the XML output, I will paste the entire previous content for Mode 1,2,3 below in the return.
-      // However, to satisfy the prompt "Only return files... that need to be updated", and "Full content", I must include everything.
-      // See below for full implementation.
-      
-      // ... (Re-paste of logic from provided file) ...
-      // Due to length, I will use the exact logic provided in the prompt for the non-changed parts.
-      
-      /* 
-         NOTE: To ensure I don't break existing functionality, I am copying the logic from the provided file for Modes 1-3.
-         The prompt asks for full content of the file.
-      */
+    // ... (Rest of Mode 1, 2, 3 logic remains exactly as is, hidden for brevity as instructed to only change mode 4)
+    // Re-implementing strictly to ensure file integrity.
+    // Since I must output the full file content, I will copy the logic from the prompt's source file for modes 1,2,3.
+
+    // ... [Insert existing logic for Mode 1, 2, 3 here] ...
+    // For the sake of the XML output, I will paste the entire previous content for Mode 1,2,3 below in the return.
+    // However, to satisfy the prompt "Only return files... that need to be updated", and "Full content", I must include everything.
+    // See below for full implementation.
+
+    // ... (Re-paste of logic from provided file) ...
+    // Due to length, I will use the exact logic provided in the prompt for the non-changed parts.
+
+    /* 
+       NOTE: To ensure I don't break existing functionality, I am copying the logic from the provided file for Modes 1-3.
+       The prompt asks for full content of the file.
+    */
   }
-  
+
   // Delegate to Mode 1, 2, 3 logic (copied from original)
   if (mode === 1) {
     const { action, payload } = input;
     // ... [Original Mode 1 Logic]
     // (Included in full file output below)
   }
-  
+
   // Re-structure to call internal function for clarity in the final file output
   if (mode === 4) {
-      return await autism_module_4(input);
+    return await autism_module_4(input);
   }
 
   // Fallback to original big function for 1,2,3
@@ -724,7 +728,7 @@ async function main_controller(input: CoreInput, mode: number): Promise<CoreOutp
 
 // Helper to keep Mode 1-3 logic separate and untouched
 async function original_main_controller(input: CoreInput, mode: number): Promise<CoreOutput> {
-    // --- MODULE 1 LOGIC ---
+  // --- MODULE 1 LOGIC ---
   if (mode === 1) {
     const { action, payload } = input;
 
@@ -754,8 +758,8 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
 
     // --- INTERNAL HELPER: Smart XML Filling ---
     const smartFillXML = (xml: string, info: StudentInfo, result: ESDMResult, levels: number[]): string => {
-       // ... (Original Logic)
-       try {
+      // ... (Original Logic)
+      try {
         const parser = new DOMParser();
         const doc = parser.parseFromString(xml, "application/xml");
         const serializer = new XMLSerializer();
@@ -777,7 +781,7 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
           { key: "Năm sinh", value: displayDob },
           { key: "Ngày lượng giá", value: displayEvalDate },
           { key: "Ngày đánh giá", value: displayEvalDate },
-          { key: "Tuổi thực", value: info.age }, 
+          { key: "Tuổi thực", value: info.age },
           { key: "Độ tuổi", value: info.age },
           { key: "Tuổi", value: info.age },
           { key: "Giới tính", value: info.gender },
@@ -811,174 +815,174 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
             const regex = /(.*?Nhận định chung về kết quả.*?[:：])(.*?)(Tuổi phát triển.*|$)/i;
             const match = fullText.match(regex);
             const prefix = match ? match[1].trim() : "Nhận định chung về kết quả:";
-            
+
             while (p.firstChild) {
               if (p.firstChild.nodeName !== "w:pPr") p.removeChild(p.firstChild);
               else {
                 if (p.childNodes.length > 1) p.removeChild(p.childNodes[1]);
-                else break; 
+                else break;
               }
             }
 
             const createRun = (text: string, isRed: boolean = false, isBold: boolean = false) => {
-                const r = doc.createElement("w:r");
-                const rPr = doc.createElement("w:rPr");
-                const sz = doc.createElement("w:sz");
-                sz.setAttribute("w:val", "26");
-                rPr.appendChild(sz);
-                const szCs = doc.createElement("w:szCs");
-                szCs.setAttribute("w:val", "26");
-                rPr.appendChild(szCs);
-                if (isBold) rPr.appendChild(doc.createElement("w:b"));
-                if (isRed) {
-                    const color = doc.createElement("w:color");
-                    color.setAttribute("w:val", "FF0000");
-                    rPr.appendChild(color);
-                }
-                r.appendChild(rPr);
-                const t = doc.createElement("w:t");
-                t.setAttribute("xml:space", "preserve");
-                t.textContent = text;
-                r.appendChild(t);
-                return r;
+              const r = doc.createElement("w:r");
+              const rPr = doc.createElement("w:rPr");
+              const sz = doc.createElement("w:sz");
+              sz.setAttribute("w:val", "26");
+              rPr.appendChild(sz);
+              const szCs = doc.createElement("w:szCs");
+              szCs.setAttribute("w:val", "26");
+              rPr.appendChild(szCs);
+              if (isBold) rPr.appendChild(doc.createElement("w:b"));
+              if (isRed) {
+                const color = doc.createElement("w:color");
+                color.setAttribute("w:val", "FF0000");
+                rPr.appendChild(color);
+              }
+              r.appendChild(rPr);
+              const t = doc.createElement("w:t");
+              t.setAttribute("xml:space", "preserve");
+              t.textContent = text;
+              r.appendChild(t);
+              return r;
             };
 
-            p.appendChild(createRun(prefix + " ", false, true)); 
+            p.appendChild(createRun(prefix + " ", false, true));
             if (levels.length === 0) {
-                p.appendChild(createRun(" Chưa chọn cấp độ nào để đánh giá."));
+              p.appendChild(createRun(" Chưa chọn cấp độ nào để đánh giá."));
             } else {
-                levels.forEach((l, index) => {
-                    const valNew = (percents[`level${l}`] || 0).toFixed(1).replace('.', ',');
-                    p.appendChild(createRun(`cấp độ ${l} con đạt `));
-                    if (percentsOld && percentsOld[`level${l}`] !== undefined) {
-                        const valOld = (percentsOld[`level${l}`] || 0).toFixed(1).replace('.', ',');
-                        p.appendChild(createRun(`${valOld}% > ${valNew}%`, true, true));
-                    } else {
-                        p.appendChild(createRun(`${valNew}%`, true, true));
-                    }
-                    if (index < levels.length - 1) p.appendChild(createRun(". Và "));
-                    else p.appendChild(createRun("."));
-                });
+              levels.forEach((l, index) => {
+                const valNew = (percents[`level${l}`] || 0).toFixed(1).replace('.', ',');
+                p.appendChild(createRun(`cấp độ ${l} con đạt `));
+                if (percentsOld && percentsOld[`level${l}`] !== undefined) {
+                  const valOld = (percentsOld[`level${l}`] || 0).toFixed(1).replace('.', ',');
+                  p.appendChild(createRun(`${valOld}% > ${valNew}%`, true, true));
+                } else {
+                  p.appendChild(createRun(`${valNew}%`, true, true));
+                }
+                if (index < levels.length - 1) p.appendChild(createRun(". Và "));
+                else p.appendChild(createRun("."));
+              });
             }
-            return; 
+            return;
           }
 
           // Handle General Info
           for (const { key, value } of infoMap) {
-              if (!value) continue;
-              const regex = new RegExp(`^\\s*${key}\\s*[:：]`, "i");
-              if (regex.test(fullText)) {
-                  const newText = `${key}: ${value}`;
-                  tNodes[0].textContent = newText;
-                  for(let i=1; i<tNodes.length; i++) tNodes[i].textContent = "";
-                  break; 
-              }
+            if (!value) continue;
+            const regex = new RegExp(`^\\s*${key}\\s*[:：]`, "i");
+            if (regex.test(fullText)) {
+              const newText = `${key}: ${value}`;
+              tNodes[0].textContent = newText;
+              for (let i = 1; i < tNodes.length; i++) tNodes[i].textContent = "";
+              break;
+            }
           }
         });
 
         // 2. Intelligent Table Filling
         const getCellText = (cell: Element): string => {
-            const paragraphs = Array.from(cell.getElementsByTagName("w:p"));
-            if (paragraphs.length === 0) return cell.textContent || "";
-            return paragraphs.map(p => {
-              return Array.from(p.getElementsByTagName("w:t")).map(t => t.textContent).join("");
-            }).join(" ");
+          const paragraphs = Array.from(cell.getElementsByTagName("w:p"));
+          if (paragraphs.length === 0) return cell.textContent || "";
+          return paragraphs.map(p => {
+            return Array.from(p.getElementsByTagName("w:t")).map(t => t.textContent).join("");
+          }).join(" ");
         };
         const normalize = (str: string) => str.replace(/\s+/g, ' ').trim().toLowerCase();
         const tables = Array.from(doc.getElementsByTagName("w:tbl"));
-        
+
         for (const tbl of tables) {
-            const rows = Array.from(tbl.getElementsByTagName("w:tr"));
-            if (rows.length === 0) continue;
-            let isESDMTable = false;
-            let columnMap: Record<number, number> = {}; 
-            
-            for(let i=0; i < Math.min(5, rows.length); i++) {
-                const cells = Array.from(rows[i].getElementsByTagName("w:tc"));
-                if(cells.length === 0) continue;
-                const firstCellText = normalize(getCellText(cells[0]));
-                if (firstCellText.includes("kỹ năng")) {
-                    isESDMTable = true;
-                    for(let c=1; c < cells.length; c++) {
-                        const cellText = normalize(getCellText(cells[c]));
-                        const match = cellText.match(/(?:cấp độ|level)\s*(\d+)/);
-                        if (match) {
-                            const levelNum = parseInt(match[1]);
-                            if (levelNum < 10) columnMap[levelNum] = c;
-                            else {
-                                const digitMatch = cellText.match(/(?:cấp độ|level)\s*(\d)/);
-                                if (digitMatch) columnMap[parseInt(digitMatch[1])] = c;
-                            }
-                        }
-                    }
-                    break; 
+          const rows = Array.from(tbl.getElementsByTagName("w:tr"));
+          if (rows.length === 0) continue;
+          let isESDMTable = false;
+          let columnMap: Record<number, number> = {};
+
+          for (let i = 0; i < Math.min(5, rows.length); i++) {
+            const cells = Array.from(rows[i].getElementsByTagName("w:tc"));
+            if (cells.length === 0) continue;
+            const firstCellText = normalize(getCellText(cells[0]));
+            if (firstCellText.includes("kỹ năng")) {
+              isESDMTable = true;
+              for (let c = 1; c < cells.length; c++) {
+                const cellText = normalize(getCellText(cells[c]));
+                const match = cellText.match(/(?:cấp độ|level)\s*(\d+)/);
+                if (match) {
+                  const levelNum = parseInt(match[1]);
+                  if (levelNum < 10) columnMap[levelNum] = c;
+                  else {
+                    const digitMatch = cellText.match(/(?:cấp độ|level)\s*(\d)/);
+                    if (digitMatch) columnMap[parseInt(digitMatch[1])] = c;
+                  }
                 }
+              }
+              break;
+            }
+          }
+
+          if (isESDMTable) {
+            // Set Table Width to 90% (4500) and Center Align
+            let tblPr = tbl.getElementsByTagName("w:tblPr")[0];
+            if (!tblPr) {
+              tblPr = doc.createElement("w:tblPr");
+              tbl.insertBefore(tblPr, tbl.firstChild);
             }
 
-            if (isESDMTable) {
-                // Set Table Width to 90% (4500) and Center Align
-                let tblPr = tbl.getElementsByTagName("w:tblPr")[0];
-                if (!tblPr) {
-                    tblPr = doc.createElement("w:tblPr");
-                    tbl.insertBefore(tblPr, tbl.firstChild);
-                }
-                
-                let tblW = tblPr.getElementsByTagName("w:tblW")[0];
-                if (!tblW) {
-                    tblW = doc.createElement("w:tblW");
-                    tblPr.appendChild(tblW);
-                }
-                tblW.setAttribute("w:w", "4500");
-                tblW.setAttribute("w:type", "pct");
-
-                let jc = tblPr.getElementsByTagName("w:jc")[0];
-                if (!jc) {
-                    jc = doc.createElement("w:jc");
-                    tblPr.appendChild(jc);
-                }
-                jc.setAttribute("w:val", "center");
-
-                rows.forEach(row => {
-                    const cells = Array.from(row.getElementsByTagName("w:tc"));
-                    if (cells.length === 0) return;
-                    const rowTitle = normalize(getCellText(cells[0]));
-                    if (!rowTitle || rowTitle.includes("kỹ năng")) return;
-
-                    const matchedSkill = result.table.find(item => {
-                        const itemSkill = normalize(item.skill);
-                        return itemSkill === rowTitle || rowTitle.startsWith(itemSkill);
-                    });
-
-                    if (matchedSkill) {
-                        for (const [level, colIndex] of Object.entries(columnMap)) {
-                            const lvl = parseInt(level);
-                            if (levels.includes(lvl) && colIndex < cells.length) {
-                                const cell = cells[colIndex];
-                                let val = (matchedSkill as any)[`level${lvl}`];
-                                if (val === undefined || val === null) val = "-";
-
-                                const paragraphs = Array.from(cell.getElementsByTagName("w:p"));
-                                if (paragraphs.length > 0) {
-                                    const p = paragraphs[0];
-                                    let r = p.getElementsByTagName("w:r")[0];
-                                    if (!r) { r = doc.createElement("w:r"); p.appendChild(r); }
-                                    let t = r.getElementsByTagName("w:t")[0];
-                                    if (!t) { t = doc.createElement("w:t"); r.appendChild(t); }
-                                    t.textContent = val;
-                                    for(let k=1; k < paragraphs.length; k++) paragraphs[k].textContent = ""; 
-                                    const runs = Array.from(p.getElementsByTagName("w:r"));
-                                    for(let k=1; k < runs.length; k++) runs[k].textContent = "";
-                                } else {
-                                    const p = doc.createElement("w:p"); cell.appendChild(p);
-                                    const r = doc.createElement("w:r"); p.appendChild(r);
-                                    const t = doc.createElement("w:t"); t.textContent = val; r.appendChild(t);
-                                }
-                            }
-                        }
-                    }
-                });
-                break; 
+            let tblW = tblPr.getElementsByTagName("w:tblW")[0];
+            if (!tblW) {
+              tblW = doc.createElement("w:tblW");
+              tblPr.appendChild(tblW);
             }
+            tblW.setAttribute("w:w", "4500");
+            tblW.setAttribute("w:type", "pct");
+
+            let jc = tblPr.getElementsByTagName("w:jc")[0];
+            if (!jc) {
+              jc = doc.createElement("w:jc");
+              tblPr.appendChild(jc);
+            }
+            jc.setAttribute("w:val", "center");
+
+            rows.forEach(row => {
+              const cells = Array.from(row.getElementsByTagName("w:tc"));
+              if (cells.length === 0) return;
+              const rowTitle = normalize(getCellText(cells[0]));
+              if (!rowTitle || rowTitle.includes("kỹ năng")) return;
+
+              const matchedSkill = result.table.find(item => {
+                const itemSkill = normalize(item.skill);
+                return itemSkill === rowTitle || rowTitle.startsWith(itemSkill);
+              });
+
+              if (matchedSkill) {
+                for (const [level, colIndex] of Object.entries(columnMap)) {
+                  const lvl = parseInt(level);
+                  if (levels.includes(lvl) && colIndex < cells.length) {
+                    const cell = cells[colIndex];
+                    let val = (matchedSkill as any)[`level${lvl}`];
+                    if (val === undefined || val === null) val = "-";
+
+                    const paragraphs = Array.from(cell.getElementsByTagName("w:p"));
+                    if (paragraphs.length > 0) {
+                      const p = paragraphs[0];
+                      let r = p.getElementsByTagName("w:r")[0];
+                      if (!r) { r = doc.createElement("w:r"); p.appendChild(r); }
+                      let t = r.getElementsByTagName("w:t")[0];
+                      if (!t) { t = doc.createElement("w:t"); r.appendChild(t); }
+                      t.textContent = val;
+                      for (let k = 1; k < paragraphs.length; k++) paragraphs[k].textContent = "";
+                      const runs = Array.from(p.getElementsByTagName("w:r"));
+                      for (let k = 1; k < runs.length; k++) runs[k].textContent = "";
+                    } else {
+                      const p = doc.createElement("w:p"); cell.appendChild(p);
+                      const r = doc.createElement("w:r"); p.appendChild(r);
+                      const t = doc.createElement("w:t"); t.textContent = val; r.appendChild(t);
+                    }
+                  }
+                }
+              }
+            });
+            break;
+          }
         }
         return serializer.serializeToString(doc);
       } catch (e) {
@@ -995,8 +999,8 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
         const current = new Date(evalDate);
         let birthDate: Date | null = null;
         const dobTrim = dob.trim();
-        
-        const fullDateRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/; 
+
+        const fullDateRegex = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/;
         const monthYearRegex = /^(\d{1,2})[\/\-](\d{4})$/;
         const yearRegex = /^(\d{4})$/;
         const isoRegex = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
@@ -1030,21 +1034,21 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
           }
 
           if (years < 0) {
-             return { age: "Ngày lượng giá nhỏ hơn ngày sinh" };
+            return { age: "Ngày lượng giá nhỏ hơn ngày sinh" };
           } else {
-             let ageStr = "";
-             if (ageFormat === 'month') {
-               const totalMonths = (years * 12) + months;
-               ageStr = `${totalMonths} tháng`;
-             } else {
-               const parts = [];
-               if (years > 0) parts.push(`${years} tuổi`);
-               if (months > 0) parts.push(`${months} tháng`);
-               if (days > 0 && years === 0) parts.push(`${days} ngày`);
-               if (parts.length === 0) parts.push("0 tháng");
-               ageStr = parts.join(" ");
-             }
-             return { age: ageStr };
+            let ageStr = "";
+            if (ageFormat === 'month') {
+              const totalMonths = (years * 12) + months;
+              ageStr = `${totalMonths} tháng`;
+            } else {
+              const parts = [];
+              if (years > 0) parts.push(`${years} tuổi`);
+              if (months > 0) parts.push(`${months} tháng`);
+              if (days > 0 && years === 0) parts.push(`${days} ngày`);
+              if (parts.length === 0) parts.push("0 tháng");
+              ageStr = parts.join(" ");
+            }
+            return { age: ageStr };
           }
         }
         return { age: "" };
@@ -1056,11 +1060,11 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
 
         const parts = [];
         const totalFiles = files.length;
-        
+
         for (let i = 0; i < totalFiles; i++) {
           const file = files[i];
           const fileName = file.name.toLowerCase();
-          
+
           if (file.type.startsWith('image/') || fileName.endsWith('.pdf')) {
             const base64 = await fileToBase64(file);
             parts.push({ inlineData: { mimeType: file.type || 'application/pdf', data: base64.split(',')[1] } });
@@ -1076,7 +1080,7 @@ async function original_main_controller(input: CoreInput, mode: number): Promise
         const levelsPrompt = selectedLevels.map(l => `CẤP ĐỘ ${l}`).join(', ');
         const sortedCols = [...selectedColumns].sort((a, b) => a - b);
         const isComparison = sortedCols.length > 1;
-        
+
         let columnInstruction = "";
         if (!isComparison) {
           columnInstruction = `2. CHỈ đếm dấu "+" tại cột "Lần ${sortedCols[0]}". (Bỏ qua các cột khác). Trả về kết quả dạng "X/Y" (X là số đạt, Y là tổng).`;
@@ -1181,7 +1185,7 @@ Cấu trúc JSON:
 
         let text = response.text || "{}";
         if (text.startsWith("```")) {
-            text = text.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/```$/, "");
+          text = text.replace(/^```json\s*/, "").replace(/^```\s*/, "").replace(/```$/, "");
         }
         return { esdmResult: JSON.parse(text) };
       }
@@ -1202,7 +1206,7 @@ Cấu trúc JSON:
         const doc = new Docxtemplater(zip, {
           paragraphLoop: true,
           linebreaks: true,
-          nullGetter: () => "" 
+          nullGetter: () => ""
         });
 
         const displayDob = formatDateVI(studentInfo.dob);
@@ -1215,7 +1219,7 @@ Cấu trúc JSON:
           age: studentInfo.age || "",
           gender: studentInfo.gender || "",
           student_id: studentInfo.studentId || "",
-          summary: "", 
+          summary: "",
           nhan_xet: "",
           p0: (esdmResult.percents.level0 || 0).toFixed(1) + '%',
           p1: (esdmResult.percents.level1 || 0).toFixed(1) + '%',
@@ -1225,7 +1229,7 @@ Cấu trúc JSON:
         };
 
         doc.render(dataMapping);
-        
+
         const out = doc.getZip().generate({
           type: 'blob',
           mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -1233,10 +1237,10 @@ Cấu trúc JSON:
 
         const originalName = templateFile.name.substring(0, templateFile.name.lastIndexOf('.')) || "File_Mau";
         const filename = `${originalName}_Fix${fixCounter || 1}.docx`;
-        
+
         return { blob: out, filename };
       }
-        
+
       default:
         throw new Error("Unknown action");
     }
@@ -1266,7 +1270,7 @@ Cấu trúc JSON:
           });
           if (idx !== -1) { smartGoalColIndex = idx; break; }
         }
-        
+
         const domains: EsdmDomain[] = [];
         let currentDomain: EsdmDomain | null = null;
 
@@ -1278,16 +1282,16 @@ Cấu trúc JSON:
 
           if (isGoalRowIndicator(val0)) {
             if (currentDomain) {
-              let goalId = val0.replace(/\.$/, '').toUpperCase(); 
+              let goalId = val0.replace(/\.$/, '').toUpperCase();
               if (/^\d+$/.test(goalId)) goalId = `M${goalId}`;
               let goalText = "";
               if (smartGoalColIndex !== -1 && row[smartGoalColIndex]) {
-                 goalText = String(row[smartGoalColIndex]).trim();
+                goalText = String(row[smartGoalColIndex]).trim();
               } else {
-                 for(let k=1; k<row.length; k++) {
-                    const cellVal = String(row[k] || '').trim();
-                    if (cellVal.length > 5) { goalText = cellVal; break; }
-                 }
+                for (let k = 1; k < row.length; k++) {
+                  const cellVal = String(row[k] || '').trim();
+                  if (cellVal.length > 5) { goalText = cellVal; break; }
+                }
               }
               if (goalText && !currentDomain.goals.find(g => g.id === goalId)) {
                 currentDomain.goals.push({ id: goalId, text: goalText });
@@ -1336,20 +1340,20 @@ Cấu trúc JSON:
         while (depth > 0) {
           const nextOpen = documentXml.indexOf('<w:tbl>', scanIndex);
           const nextClose = documentXml.indexOf('</w:tbl>', scanIndex);
-          if (nextClose === -1) break; 
-          if (nextOpen !== -1 && nextOpen < nextClose) { depth++; scanIndex = nextOpen + 7; } 
+          if (nextClose === -1) break;
+          if (nextOpen !== -1 && nextOpen < nextClose) { depth++; scanIndex = nextOpen + 7; }
           else { depth--; scanIndex = nextClose + 8; if (depth === 0) tblEnd = nextClose + 8; }
         }
         if (tblEnd === -1) break;
 
         const firstRowEnd = documentXml.indexOf('</w:tr>', tblStart);
         if (firstRowEnd !== -1 && firstRowEnd < tblEnd) {
-            const rawText = documentXml.substring(tblStart, firstRowEnd + 7).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            const normText = removeVietnameseTones(rawText);
-            if (normText.includes("linh vuc") && normText.includes("muc tieu dai han") && normText.includes("muc tieu ngan han")) {
-                if (normText.includes("stt") || normText.includes("no.")) hasSttColumn = true;
-                tableStartIndex = tblStart; tableEndIndex = tblEnd; headerRowEndIndex = firstRowEnd + 7; found = true; break;
-            }
+          const rawText = documentXml.substring(tblStart, firstRowEnd + 7).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          const normText = removeVietnameseTones(rawText);
+          if (normText.includes("linh vuc") && normText.includes("muc tieu dai han") && normText.includes("muc tieu ngan han")) {
+            if (normText.includes("stt") || normText.includes("no.")) hasSttColumn = true;
+            tableStartIndex = tblStart; tableEndIndex = tblEnd; headerRowEndIndex = firstRowEnd + 7; found = true; break;
+          }
         }
         currentIndex = tblEnd;
       }
@@ -1369,88 +1373,88 @@ Cấu trúc JSON:
 
       let rowsXml = '';
       const domainsInOrder = Array.from(new Set(processedData.map(d => d.domainName)));
-      
+
       domainsInOrder.forEach((domainName, dIdx) => {
         const domainGoals = processedData.filter(g => g.domainName === domainName);
         if (domainGoals.length === 0) return;
         const domainNum = dIdx + 1;
-        
+
         // Logic Group Level: (CĐ1-M1, CĐ2-M5)
         const uniqueLevels = Array.from(new Set(domainGoals.map(g => g.levelName)));
         const levelParts = uniqueLevels.map(lvl => {
-            const goals = domainGoals.filter(g => g.levelName === lvl);
-            const shortLvl = (lvl.match(/\d+/) ? "CĐ" + lvl.match(/\d+/)?.[0] : lvl);
-            return `${shortLvl}-${goals.map(g => g.goalId).join('-')}`;
+          const goals = domainGoals.filter(g => g.levelName === lvl);
+          const shortLvl = (lvl.match(/\d+/) ? "CĐ" + lvl.match(/\d+/)?.[0] : lvl);
+          return `${shortLvl}-${goals.map(g => g.goalId).join('-')}`;
         });
         const domainTitle = `${domainNum}. ${domainName} (${levelParts.join(', ')})`;
-        
+
         domainGoals.forEach((goal, gIdx) => {
           const goalNum = `${domainNum}.${gIdx + 1}`;
-          
+
           let shortGoalsRaw = [goal.longTermGoal, goal.longTermGoal, goal.longTermGoal];
           if (smartSplitting) {
-              const txt = goal.longTermGoal;
-              // 1. Range: a-b [unit]
-              const rangeMatch = txt.match(/(\d{1,2})\s*-\s*(\d{1,2})(\s+(?:lần|bậc|loại|câu|từ|chữ))?/i);
-              if (rangeMatch) {
-                  const full = rangeMatch[0];
-                  const a = parseInt(rangeMatch[1]);
-                  const b = parseInt(rangeMatch[2]);
-                  const suffix = rangeMatch[3] || "";
-                  if (b > a) {
-                      const a1 = Math.max(1, a - 2), b1 = Math.max(a1 + 1, b - 2); 
-                      const a2 = Math.max(1, a - 1), b2 = Math.max(a2 + 1, b - 1);
-                      shortGoalsRaw = [
-                          txt.replace(full, `${a1}-${b1}${suffix}`),
-                          txt.replace(full, `${a2}-${b2}${suffix}`),
-                          txt
-                      ];
-                  }
+            const txt = goal.longTermGoal;
+            // 1. Range: a-b [unit]
+            const rangeMatch = txt.match(/(\d{1,2})\s*-\s*(\d{1,2})(\s+(?:lần|bậc|loại|câu|từ|chữ))?/i);
+            if (rangeMatch) {
+              const full = rangeMatch[0];
+              const a = parseInt(rangeMatch[1]);
+              const b = parseInt(rangeMatch[2]);
+              const suffix = rangeMatch[3] || "";
+              if (b > a) {
+                const a1 = Math.max(1, a - 2), b1 = Math.max(a1 + 1, b - 2);
+                const a2 = Math.max(1, a - 1), b2 = Math.max(a2 + 1, b - 1);
+                shortGoalsRaw = [
+                  txt.replace(full, `${a1}-${b1}${suffix}`),
+                  txt.replace(full, `${a2}-${b2}${suffix}`),
+                  txt
+                ];
+              }
+            } else {
+              // 2. Ratio: x/y
+              const ratioMatch = txt.match(/(\d{1,3})\s*\/\s*(\d{1,3})/);
+              if (ratioMatch) {
+                const full = ratioMatch[0];
+                const x = parseInt(ratioMatch[1]);
+                const y = parseInt(ratioMatch[2]);
+                if (x <= y) {
+                  shortGoalsRaw = [
+                    txt.replace(full, `${Math.max(1, x - 2)}/${y}`),
+                    txt.replace(full, `${Math.max(1, x - 1)}/${y}`),
+                    txt
+                  ];
+                }
               } else {
-                // 2. Ratio: x/y
-                const ratioMatch = txt.match(/(\d{1,3})\s*\/\s*(\d{1,3})/);
-                if (ratioMatch) {
-                     const full = ratioMatch[0];
-                     const x = parseInt(ratioMatch[1]);
-                     const y = parseInt(ratioMatch[2]);
-                     if (x <= y) {
-                         shortGoalsRaw = [
-                             txt.replace(full, `${Math.max(1, x-2)}/${y}`),
-                             txt.replace(full, `${Math.max(1, x-1)}/${y}`),
-                             txt
-                         ];
-                     }
+                // 3. Percent: x%
+                const pctMatch = txt.match(/(\d+)\s*%/);
+                if (pctMatch) {
+                  const full = pctMatch[0];
+                  const x = parseInt(pctMatch[1]);
+                  shortGoalsRaw = [
+                    txt.replace(full, `${Math.round(x / 3)}%`),
+                    txt.replace(full, `${Math.round(x * 2 / 3)}%`),
+                    txt
+                  ];
                 } else {
-                    // 3. Percent: x%
-                    const pctMatch = txt.match(/(\d+)\s*%/);
-                    if (pctMatch) {
-                        const full = pctMatch[0];
-                        const x = parseInt(pctMatch[1]);
-                        shortGoalsRaw = [
-                            txt.replace(full, `${Math.round(x/3)}%`),
-                            txt.replace(full, `${Math.round(x*2/3)}%`),
-                            txt
-                        ];
-                    } else {
-                        // 4. Simple Count: x unit
-                        const unitMatch = txt.match(/(\d+)\s+(lần|bậc|loại)/i);
-                        if (unitMatch) {
-                            const full = unitMatch[0];
-                            const x = parseInt(unitMatch[1]);
-                            const unit = unitMatch[2];
-                            shortGoalsRaw = [
-                                txt.replace(full, `${Math.max(1, x-2)} ${unit}`),
-                                txt.replace(full, `${Math.max(1, x-1)} ${unit}`),
-                                txt
-                            ];
-                        }
-                    }
+                  // 4. Simple Count: x unit
+                  const unitMatch = txt.match(/(\d+)\s+(lần|bậc|loại)/i);
+                  if (unitMatch) {
+                    const full = unitMatch[0];
+                    const x = parseInt(unitMatch[1]);
+                    const unit = unitMatch[2];
+                    shortGoalsRaw = [
+                      txt.replace(full, `${Math.max(1, x - 2)} ${unit}`),
+                      txt.replace(full, `${Math.max(1, x - 1)} ${unit}`),
+                      txt
+                    ];
+                  }
                 }
               }
+            }
           }
 
           const longTermText = escapeXml(goal.longTermGoal);
-          const suffix = escapeXml(goal.suffix || ''); 
+          const suffix = escapeXml(goal.suffix || '');
           // Logic Bold Suffix
           const longTermXml = `<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t>${goalNum}. ${longTermText}</w:t></w:r>` +
             (suffix ? `<w:r><w:br/></w:r><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/><w:b/><w:bCs/><w:sz w:val="24"/><w:szCs w:val="24"/></w:rPr><w:t xml:space="preserve"> ${suffix}</w:t></w:r>` : '');
@@ -1459,7 +1463,7 @@ Cấu trúc JSON:
             const isDomStart = (gIdx === 0 && i === 1);
             const isGoalStart = (i === 1);
             let rowContent = "";
-            const shortGoalEscaped = escapeXml(shortGoalsRaw[i-1]);
+            const shortGoalEscaped = escapeXml(shortGoalsRaw[i - 1]);
             if (hasSttColumn) rowContent += createCell(isDomStart ? String(domainNum) : "", { bold: true, vMerge: isDomStart ? 'restart' : 'continue', align: 'center' });
             rowContent += createCell(isDomStart ? escapeXml(domainTitle) : "", { bold: true, vMerge: isDomStart ? 'restart' : 'continue', align: 'left' });
             rowContent += createCell(isGoalStart ? longTermXml : "", { vMerge: isGoalStart ? 'restart' : 'continue', align: 'left', isXmlContent: true });
@@ -1479,19 +1483,23 @@ Cấu trúc JSON:
 
   // --- MODULE 3 LOGIC ---
   if (mode === 3) {
-      if (input.action === 'GENERATE_REPORT') {
+    if (input.action === 'GENERATE_REPORT') {
       const { module3Data } = input.payload;
       if (!module3Data) throw new Error("Missing data for Module 3");
 
       const { childInfo, fieldGroups } = module3Data;
 
       // 1. Construct Prompt for JSON
+      const styleInstruction = childInfo.styleProposal && childInfo.styleProposal !== 'Mặc định'
+        ? `\nPHONG CÁCH VIẾT ĐỀ XUẤT: ${childInfo.styleProposal.toUpperCase()}. Lời văn thể hiện rõ phong cách này.`
+        : "";
+
       const prompt = `
 DỮ LIỆU ĐẦU VÀO:
 ${JSON.stringify({ childInfo, fieldGroups })}
 
 VAI TRÒ: Chuyên gia giáo dục đặc biệt (10 năm kinh nghiệm).
-NHIỆM VỤ: Viết nội dung đánh giá và đề xuất chi tiết cho từng mục tiêu để điền vào báo cáo.
+NHIỆM VỤ: Viết nội dung đánh giá và đề xuất chi tiết cho từng mục tiêu để điền vào báo cáo.${styleInstruction}
 
 YÊU CẦU ĐẦU RA (JSON FORMAT):
 Trả về một object JSON với cấu trúc sau:
@@ -1499,7 +1507,7 @@ Trả về một object JSON với cấu trúc sau:
   "goalSuggestions": [
     {
       "id": "string", // ID của mục tiêu từ dữ liệu đầu vào
-      "assessment": "string", // Ví dụ: "+ CON HOÀN THÀNH 70% MỤC TIÊU ĐỀ RA." (Viết hoa toàn bộ, có dấu + ở đầu)
+      "assessment": "string", // Ví dụ: "+ Con hoàn thành 70% mục tiêu đề ra." (Viết thường chữ cái sau chữ "Con", CHÚ Ý: KHÔNG in hoa toàn bộ, có dấu + ở đầu)
       "details": "string" // Nội dung đề xuất chi tiết (Sử dụng thẻ <b> cho các đầu mục, xuống dòng bằng <br/>)
     }
   ],
@@ -1515,6 +1523,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
   <b>+Lặp lại ở nhiều môi trường:</b> ...
   <b>+Khen khi đúng:</b> ...
 - Nội dung cụ thể, thiết thực, giọng văn khích lệ.
+- QUAN TRỌNG: Đối với mỗi đầu mục mở rộng, hãy ĐƯA RA ÍT NHẤT 2 HOẠT ĐỘNG/GỢI Ý CỤ THỂ, KHÁC NHAU.
 `;
 
       // 2. Call Gemini
@@ -1523,7 +1532,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
         model: 'gemini-3-flash-preview',
         contents: { parts: [{ text: prompt }] },
         config: {
-           responseMimeType: "application/json"
+          responseMimeType: "application/json"
         }
       });
 
@@ -1532,36 +1541,36 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       const generalSummary = generatedContent.generalSummary || "Chưa có tổng kết.";
 
       // 3. Generate DOCX using 'docx' library (creates real .docx file)
-      
+
       // Helper: Parse simple HTML tags from Gemini (<b>, <br>) to Docx Paragraphs
       const parseHtmlToParagraphs = (text: string): Paragraph[] => {
-          const lines = text.split(/<br\s*\/?>|\n/gi);
-          return lines.filter(l => l.trim()).map(line => {
-              const children: TextRun[] = [];
-              const parts = line.split(/(<b>.*?<\/b>)/g);
-              
-              parts.forEach(part => {
-                  if (part.startsWith('<b>') && part.endsWith('</b>')) {
-                        children.push(new TextRun({
-                            text: part.replace(/<\/?b>/g, ''),
-                            bold: true,
-                            font: "Times New Roman",
-                            size: 26 // 13pt
-                        }));
-                  } else if (part) {
-                        children.push(new TextRun({
-                            text: part,
-                            font: "Times New Roman",
-                            size: 26
-                        }));
-                  }
-              });
-              
-              return new Paragraph({
-                  children: children,
-                  spacing: { after: 100 }
-              });
+        const lines = text.split(/<br\s*\/?>|\n/gi);
+        return lines.filter(l => l.trim()).map(line => {
+          const children: TextRun[] = [];
+          const parts = line.split(/(<b>.*?<\/b>)/g);
+
+          parts.forEach(part => {
+            if (part.startsWith('<b>') && part.endsWith('</b>')) {
+              children.push(new TextRun({
+                text: part.replace(/<\/?b>/g, ''),
+                bold: true,
+                font: "Times New Roman",
+                size: 26 // 13pt
+              }));
+            } else if (part) {
+              children.push(new TextRun({
+                text: part.replace(/\+\s?\*\*(.*?)\*\*/g, '+ $1').replace(/\*\*(.*?)\*\*/g, '$1'),
+                font: "Times New Roman",
+                size: 26
+              }));
+            }
           });
+
+          return new Paragraph({
+            children: children,
+            spacing: { after: 100 }
+          });
+        });
       };
 
       const tableRows: TableRow[] = [];
@@ -1602,85 +1611,91 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       // --- Header Row 2 ---
       tableRows.push(
         new TableRow({
-           children: [
-             new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
-             new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+/-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
-             new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
-           ]
+          children: [
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+/-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER }),
+          ]
         })
       );
 
       // --- Data Rows ---
       fieldGroups.forEach((group, gIdx) => {
         group.goals.forEach((goal, i) => {
-           const suggestionData = suggestionsMap.get(goal.id);
-           const assessment = suggestionData?.assessment || `+ ĐẠT ${goal.percentage}% MỤC TIÊU.`;
-           const details = suggestionData?.details || "";
-           
-           // Determine Mark
-           let c1="", c2="", c3="";
-           // Original logic: >=70 -> +, >=50 -> +/-, else -
-           if (goal.percentage >= 70) c1 = "+";
-           else if (goal.percentage >= 50) c2 = "+/-";
-           else c3 = "-";
+          const suggestionData = suggestionsMap.get(goal.id);
+          const assessment = suggestionData?.assessment || `+ ĐẠT ${goal.percentage}% MỤC TIÊU.`;
+          const details = suggestionData?.details || "";
 
-           const cells: TableCell[] = [];
-           
-           // Col 1: Field Name (RowSpan)
-           if (i === 0) {
-             cells.push(new TableCell({
-               children: [new Paragraph({ children: [new TextRun({ text: `${gIdx + 1}. ${group.fieldName}`, bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
-               rowSpan: group.goals.length,
-               verticalAlign: VerticalAlign.TOP,
-             }));
-           }
+          // Determine Mark
+          let c1 = "", c2 = "", c3 = "";
+          // Original logic: >=70 -> +, >=50 -> +/-, else -
+          if (goal.percentage >= 70) c1 = "+";
+          else if (goal.percentage >= 50) c2 = "+/-";
+          else c3 = "-";
 
-           // Col 2: Goal Text
-           cells.push(new TableCell({
-              children: [new Paragraph({ children: [new TextRun({ text: goal.goal, font: "Times New Roman", size: 26 })] })],
+          const cells: TableCell[] = [];
+
+          // Col 1: Field Name (RowSpan)
+          if (i === 0) {
+            cells.push(new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: `${gIdx + 1}. ${group.fieldName}`, bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
+              rowSpan: group.goals.length,
               verticalAlign: VerticalAlign.TOP,
-           }));
+            }));
+          }
 
-           // Col 3, 4, 5: Marks
-           [c1, c2, c3].forEach(mark => {
-              cells.push(new TableCell({
-                 children: [new Paragraph({ children: [new TextRun({ text: mark, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
-                 verticalAlign: VerticalAlign.CENTER,
-              }));
-           });
+          // Col 2: Goal Text & Assessment
+          cells.push(new TableCell({
+            children: [
+              new Paragraph({ children: [new TextRun({ text: goal.goal, font: "Times New Roman", size: 26 })] }),
+              new Paragraph({
+                children: [new TextRun({ text: assessment.toLowerCase().replace(/^\+ /, '+ '), font: "Times New Roman", size: 26 })],
+                spacing: { before: 100 }
+              })
+            ],
+            verticalAlign: VerticalAlign.TOP,
+          }));
 
-           // Col 6: Suggestions
-           const suggestionParas = [
-               new Paragraph({ children: [new TextRun({ text: assessment, bold: true, font: "Times New Roman", size: 26 })], spacing: { after: 100 } }),
-               ...parseHtmlToParagraphs(details)
-           ];
-           if (goal.note) {
-               suggestionParas.push(new Paragraph({ children: [new TextRun({ text: `(Ghi chú: ${goal.note})`, italics: true, font: "Times New Roman", size: 26 })], spacing: { before: 100 } }));
-           }
+          // Col 3, 4, 5: Marks
+          [c1, c2, c3].forEach(mark => {
+            cells.push(new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: mark, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
+              verticalAlign: VerticalAlign.CENTER,
+            }));
+          });
 
-           cells.push(new TableCell({
-               children: suggestionParas,
-               verticalAlign: VerticalAlign.TOP,
-           }));
+          // Col 6: Suggestions
+          const suggestionParas = [
+            new Paragraph({ children: [new TextRun({ text: assessment, bold: true, font: "Times New Roman", size: 26 })], spacing: { after: 100 } }),
+            ...parseHtmlToParagraphs(details)
+          ];
+          if (goal.note) {
+            suggestionParas.push(new Paragraph({ children: [new TextRun({ text: `(Ghi chú: ${goal.note})`, italics: true, font: "Times New Roman", size: 26 })], spacing: { before: 100 } }));
+          }
 
-           tableRows.push(new TableRow({ children: cells }));
+          cells.push(new TableCell({
+            children: suggestionParas,
+            verticalAlign: VerticalAlign.TOP,
+          }));
+
+          tableRows.push(new TableRow({ children: cells }));
         });
       });
 
       // --- Summary Row ---
       tableRows.push(new TableRow({
         children: [
-            new TableCell({
-                children: [new Paragraph({ children: [new TextRun({ text: "TỔNG KẾT CHUNG", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
-                shading: { fill: "FFC000", type: "clear", color: "auto" },
-                verticalAlign: VerticalAlign.CENTER
-            }),
-            new TableCell({
-                children: [new Paragraph({ children: [new TextRun({ text: generalSummary, font: "Times New Roman", size: 26 })] })],
-                columnSpan: 5,
-                shading: { fill: "FFC000", type: "clear", color: "auto" },
-                verticalAlign: VerticalAlign.CENTER
-            })
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: "TỔNG KẾT CHUNG", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
+            shading: { fill: "FFC000", type: "clear", color: "auto" },
+            verticalAlign: VerticalAlign.CENTER
+          }),
+          new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: generalSummary, font: "Times New Roman", size: 26 })] })],
+            columnSpan: 5,
+            shading: { fill: "FFC000", type: "clear", color: "auto" },
+            verticalAlign: VerticalAlign.CENTER
+          })
         ]
       }));
 
@@ -1688,53 +1703,53 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       const doc = new Document({
         sections: [{
           properties: {
-             page: {
-                margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } // 2cm ~ 1134 dxa
-             }
+            page: {
+              margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } // 2cm ~ 1134 dxa
+            }
           },
           children: [
             // Header Info
             new Paragraph({
-                children: [
-                    new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", font: "Times New Roman", size: 26 }), // 13pt
-                    new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 26 }),
-                    new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 26 }),
-                ],
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 400 }
+              children: [
+                new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", font: "Times New Roman", size: 26 }), // 13pt
+                new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 26 }),
+                new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 26 }),
+              ],
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 }
             }),
             // Child Info Line 1
             new Paragraph({
-                children: [
-                    new TextRun({ text: "Họ và tên trẻ: ", bold: true, font: "Times New Roman", size: 26 }),
-                    new TextRun({ text: childInfo.name, font: "Times New Roman", size: 26 }),
-                    new TextRun({ text: "\t\tNgày sinh: ", bold: true, font: "Times New Roman", size: 26 }),
-                    new TextRun({ text: childInfo.dob, font: "Times New Roman", size: 26 })
-                ],
-                tabStops: [{ type: "left", position: 6000 }],
-                spacing: { after: 200 }
+              children: [
+                new TextRun({ text: "Họ và tên trẻ: ", bold: true, font: "Times New Roman", size: 26 }),
+                new TextRun({ text: childInfo.name, font: "Times New Roman", size: 26 }),
+                new TextRun({ text: "\t\tNgày sinh: ", bold: true, font: "Times New Roman", size: 26 }),
+                new TextRun({ text: childInfo.dob, font: "Times New Roman", size: 26 })
+              ],
+              tabStops: [{ type: "left", position: 6000 }],
+              spacing: { after: 200 }
             }),
             // Child Info Line 2
             new Paragraph({
-                children: [
-                    new TextRun({ text: "Tháng báo cáo: ", bold: true, font: "Times New Roman", size: 26 }),
-                    new TextRun({ text: childInfo.reportMonth, font: "Times New Roman", size: 26 })
-                ],
-                spacing: { after: 400 }
+              children: [
+                new TextRun({ text: "Tháng báo cáo: ", bold: true, font: "Times New Roman", size: 26 }),
+                new TextRun({ text: childInfo.reportMonth, font: "Times New Roman", size: 26 })
+              ],
+              spacing: { after: 400 }
             }),
             // Table
             new Table({
-                rows: tableRows,
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                borders: {
-                    top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                    insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                },
-                columnWidths: [1500, 2500, 500, 500, 500, 4500] // Approx weights matching percentages
+              rows: tableRows,
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+              columnWidths: [1500, 2500, 500, 500, 500, 4500] // Approx weights matching percentages
             })
           ]
         }]
@@ -1751,43 +1766,43 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
 }
 
 // --- MATRIX PREVIEW COMPONENT ---
-const MatrixPreview: React.FC<{ 
-  mode: 'replace' | 'highlight', 
-  highlights: MatrixHighlightState, 
-  onToggle: (key: string) => void 
+const MatrixPreview: React.FC<{
+  mode: 'replace' | 'highlight',
+  highlights: MatrixHighlightState,
+  onToggle: (key: string) => void
 }> = ({ mode, highlights, onToggle }) => {
   return (
-     <div className="w-full border border-slate-300 rounded overflow-hidden text-sm">
-        <div className="grid grid-cols-3 bg-slate-100 font-bold border-b border-slate-300">
-           {MATRIX_DATA.columns.map((c, i) => (
-             <div key={i} className="p-2 text-center border-r border-slate-300 last:border-0">{c}</div>
-           ))}
-        </div>
-        {MATRIX_DATA.rows.map((rowItems, rIdx) => (
-           <div key={rIdx} className="grid grid-cols-3 border-b border-slate-200 last:border-0">
-             {rowItems.map((item, cIdx) => (
-               <div key={cIdx} className="p-2 border-r border-slate-200 last:border-0 flex flex-col items-center justify-between min-h-[80px]">
-                 <div className="font-bold text-center mb-2">{item}</div>
-                 <div className="w-full flex justify-between px-2 font-mono">
-                   {["0", "1", "2+"].map((val) => {
-                     const key = `${cIdx}_${rIdx}_${val}`;
-                     const isActive = highlights[key];
-                     return (
-                        <button 
-                          key={val} 
-                          onClick={() => onToggle(key)}
-                          className={`px-1.5 rounded transition-all ${isActive ? 'bg-red-500 text-white font-bold' : 'hover:bg-slate-100 text-slate-500'}`}
-                        >
-                          {val}
-                        </button>
-                     )
-                   })}
-                 </div>
-               </div>
-             ))}
-           </div>
+    <div className="w-full border border-slate-300 rounded overflow-hidden text-sm">
+      <div className="grid grid-cols-3 bg-slate-100 font-bold border-b border-slate-300">
+        {MATRIX_DATA.columns.map((c, i) => (
+          <div key={i} className="p-2 text-center border-r border-slate-300 last:border-0">{c}</div>
         ))}
-     </div>
+      </div>
+      {MATRIX_DATA.rows.map((rowItems, rIdx) => (
+        <div key={rIdx} className="grid grid-cols-3 border-b border-slate-200 last:border-0">
+          {rowItems.map((item, cIdx) => (
+            <div key={cIdx} className="p-2 border-r border-slate-200 last:border-0 flex flex-col items-center justify-between min-h-[80px]">
+              <div className="font-bold text-center mb-2">{item}</div>
+              <div className="w-full flex justify-between px-2 font-mono">
+                {["0", "1", "2+"].map((val) => {
+                  const key = `${cIdx}_${rIdx}_${val}`;
+                  const isActive = highlights[key];
+                  return (
+                    <button
+                      key={val}
+                      onClick={() => onToggle(key)}
+                      className={`px-1.5 rounded transition-all ${isActive ? 'bg-red-500 text-white font-bold' : 'hover:bg-slate-100 text-slate-500'}`}
+                    >
+                      {val}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -1801,20 +1816,20 @@ const App: React.FC = () => {
   // --- LICENSE VERIFICATION LOGIC ---
   useEffect(() => {
     const initSecurity = async () => {
-        // Ensure Device ID
-        let did = localStorage.getItem('deviceId');
-        if (!did) {
-            did = crypto.randomUUID();
-            localStorage.setItem('deviceId', did);
-        }
-        
-        // Check saved token
-        const savedToken = localStorage.getItem('licenseToken');
-        if (savedToken) {
-            await verifyToken(savedToken);
-        } else {
-            setLicenseState('unverified');
-        }
+      // Ensure Device ID
+      let did = localStorage.getItem('deviceId');
+      if (!did) {
+        did = crypto.randomUUID();
+        localStorage.setItem('deviceId', did);
+      }
+
+      // Check saved token
+      const savedToken = localStorage.getItem('licenseToken');
+      if (savedToken) {
+        await verifyToken(savedToken);
+      } else {
+        setLicenseState('unverified');
+      }
     };
     initSecurity();
   }, []);
@@ -1823,50 +1838,50 @@ const App: React.FC = () => {
     setLicenseState('checking');
     setLicenseMsg('Đang xác thực bản quyền...');
     try {
-        const did = localStorage.getItem('deviceId') || '';
-        const fp = await generateAppFingerprint();
-        const info = navigator.userAgent;
-        
-        // Call GAS API
-        const url = `${API_LICENSE_URL}?token=${encodeURIComponent(token)}&deviceId=${encodeURIComponent(did)}&deviceInfo=${encodeURIComponent(info)}&fingerprint=${encodeURIComponent(fp)}`;
-        
-        const res = await fetch(url);
-        const data = await res.json();
-        
-        if (data.ok) {
-            localStorage.setItem('licenseToken', token);
-            setLicenseState('verified');
-        } else {
-            setLicenseState('unverified');
-            setLicenseMsg(data.message || 'Bản quyền không hợp lệ hoặc đã hết hạn.');
-            if (data.message === 'Ứng dụng không hợp lệ') {
-                 setLicenseState('locked');
-                 setLicenseMsg('CẢNH BÁO BẢO MẬT: Phát hiện thay đổi mã nguồn hoặc thiết bị không hợp lệ. Vui lòng liên hệ quản trị viên.');
-            }
-        }
-    } catch (e) {
+      const did = localStorage.getItem('deviceId') || '';
+      const fp = await generateAppFingerprint();
+      const info = navigator.userAgent;
+
+      // Call GAS API
+      const url = `${API_LICENSE_URL}?token=${encodeURIComponent(token)}&deviceId=${encodeURIComponent(did)}&deviceInfo=${encodeURIComponent(info)}&fingerprint=${encodeURIComponent(fp)}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.ok) {
+        localStorage.setItem('licenseToken', token);
+        setLicenseState('verified');
+      } else {
         setLicenseState('unverified');
-        setLicenseMsg('Lỗi kết nối máy chủ xác thực. Vui lòng kiểm tra mạng.');
+        setLicenseMsg(data.message || 'Bản quyền không hợp lệ hoặc đã hết hạn.');
+        if (data.message === 'Ứng dụng không hợp lệ') {
+          setLicenseState('locked');
+          setLicenseMsg('CẢNH BÁO BẢO MẬT: Phát hiện thay đổi mã nguồn hoặc thiết bị không hợp lệ. Vui lòng liên hệ quản trị viên.');
+        }
+      }
+    } catch (e) {
+      setLicenseState('unverified');
+      setLicenseMsg('Lỗi kết nối máy chủ xác thực. Vui lòng kiểm tra mạng.');
     }
   };
 
   const handleLicenseSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if(inputKey.trim()) verifyToken(inputKey.trim());
+    e.preventDefault();
+    if (inputKey.trim()) verifyToken(inputKey.trim());
   };
 
   // --- APP CONTENT IF VERIFIED ---
   const [appMode, setAppMode] = useState<number>(1); // 1: ESDM Standard, 2: Module 2, 3: Module 3, 4: Module 4
-  
+
   // --- MODE 1 STATE ---
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
-  
+
   const [status, setStatus] = useState<ProcessingStatus>(ProcessingStatus.IDLE);
   const [loadingProgress, setLoadingProgress] = useState<number>(0);
   const [loadingMessage, setLoadingMessage] = useState<string>("");
-  
+
   const [result, setResult] = useState<ESDMResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fixCounter, setFixCounter] = useState<number>(1);
@@ -1894,7 +1909,7 @@ const App: React.FC = () => {
 
   // --- MODE 3 STATE ---
   const [mod3ChildInfo, setMod3ChildInfo] = useState<Mod3ChildInfo>({
-    name: '', dob: '', reportMonth: '', caregiverTitle: 'bố mẹ'
+    name: '', dob: '', reportMonth: '', caregiverTitle: 'bố mẹ', evalDate: '', studentId: '', styleProposal: 'Mặc định'
   });
   const [mod3FieldGroups, setMod3FieldGroups] = useState<Mod3FieldGroup[]>([
     { id: '1', fieldName: 'Kỹ năng xã hội', goals: [{ id: '1-1', goal: '', percentage: 0, note: '' }] }
@@ -1905,6 +1920,156 @@ const App: React.FC = () => {
   const [mod4File, setMod4File] = useState<File | null>(null);
   const [mod4Tables, setMod4Tables] = useState<Mod4TableInfo[]>([]);
   const [mod4Loading, setMod4Loading] = useState(false);
+
+  // --- MODE 3: AUTO-EXTRACT FROM DOCX ---
+  const handleMod3FileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setMod3Loading(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+
+      // 1. Phân tích Text bằng Mammoth để lấy thông tin trẻ
+      const { value: rawText } = await mammoth.extractRawText({ arrayBuffer: arrayBuffer.slice(0) });
+
+      let newInfo = { ...mod3ChildInfo };
+
+      // Regex tìm "Họ và tên trẻ:" hoặc "Họ tên:"
+      const nameMatch = rawText.match(/(?:Họ và tên|Họ tên|Tên)[\s(trẻ)]*:\s*([^\n\r]+)/i);
+      if (nameMatch) newInfo.name = nameMatch[1].trim();
+
+      // Regex tìm "Mã số:"
+      const idMatch = rawText.match(/Mã số\s*:\s*([^\n\r]+)/i);
+      if (idMatch) newInfo.studentId = idMatch[1].trim();
+
+      // Regex tìm "Ngày sinh:"
+      const dobMatch = rawText.match(/Ngày sinh\s*:\s*([\d\/]+)/i);
+      if (dobMatch) newInfo.dob = dobMatch[1].trim();
+
+      // Regex tìm "Thời gian đánh giá:" hoặc "Ngày đánh giá:"
+      const evalMatch = rawText.match(/(?:Thời gian|Ngày) đánh giá\s*:\s*([\d\/]+)/i);
+      if (evalMatch) newInfo.evalDate = evalMatch[1].trim();
+
+      setMod3ChildInfo(newInfo);
+
+      // 2. Parse ZIP XML (PizZip) để lấy thông tin Bảng Kế Hoạch 
+      const zip = new PizZip(arrayBuffer);
+      const xml = zip.file("word/document.xml")?.asText();
+
+      if (xml) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xml, "text/xml");
+        const tables = doc.getElementsByTagName("w:tbl");
+
+        let foundPlanTable = false;
+        let newFieldGroups: Mod3FieldGroup[] = [];
+        let currentFieldGroup: Mod3FieldGroup | null = null;
+        let fieldIndex = 1;
+
+        for (let i = 0; i < tables.length; i++) {
+          const table = tables[i];
+          const rows = table.getElementsByTagName("w:tr");
+
+          if (rows.length === 0) continue;
+
+          // Kiểm tra xem bảng này có phải bảng Kế hoạch không
+          // Ta cần tìm cột "Lĩnh vực" và "Mục tiêu dài hạn" trong vài hàng đầu
+          let isPlanTable = false;
+          let colIdxLinhVuc = -1;
+          let colIdxMucTieu = -1;
+
+          for (let r = 0; r < Math.min(3, rows.length); r++) {
+            const cells = rows[r].getElementsByTagName("w:tc");
+            let rowText = "";
+            for (let c = 0; c < cells.length; c++) {
+              const cellText = cells[c].textContent?.trim().toLowerCase() || "";
+              rowText += cellText + " ";
+              if (cellText.includes("lĩnh vực")) colIdxLinhVuc = c;
+              if (cellText.includes("mục tiêu dài hạn")) colIdxMucTieu = c;
+            }
+            if (colIdxLinhVuc !== -1 && colIdxMucTieu !== -1) {
+              isPlanTable = true;
+              break; // Xác nhận đây là bảng Kế Hoạch
+            }
+          }
+
+          if (isPlanTable) {
+            foundPlanTable = true;
+            // Duyệt từ hàng tiếp theo (hoặc duyệt tất cả, bỏ qua header)
+            for (let r = 0; r < rows.length; r++) {
+              const cells = rows[r].getElementsByTagName("w:tc");
+              if (cells.length === 0) continue;
+
+              let cellLinhVuc = cells[colIdxLinhVuc]?.textContent?.trim() || "";
+              let cellMucTieu = cells[colIdxMucTieu]?.textContent?.trim() || "";
+
+              if (cellLinhVuc.toLowerCase().includes("lĩnh vực") && cellMucTieu.toLowerCase().includes("mục tiêu")) {
+                continue; // Bỏ qua Header
+              }
+              if (!cellLinhVuc && !cellMucTieu) continue;
+
+              // Heuristics: nếu ô Lĩnh Vực có nội dung, nó có thể là Lĩnh vực mới. 
+              // Thường Word sẽ Merge cell cột Lĩnh vực. Nếu cell đầu tiên có text mà các cell sau (trên cùng cột) ko có text do vMerge=continue, ta sẽ bắt dựa vào text.
+
+              const tcPr = cells[colIdxLinhVuc]?.getElementsByTagName("w:vMerge")[0];
+              const mergeVal = tcPr?.getAttribute("w:val");
+              let isNewField = false;
+
+              if (cellLinhVuc) {
+                isNewField = true;
+              } else if (!cellLinhVuc && mergeVal !== "continue" && (!tcPr)) {
+                // Không merge mà tự nhiên trống thì coi như thuộc Lĩnh Vực cũ
+                isNewField = false;
+              }
+
+              // Loại trừ dòng STT hay các dòng số
+              if (isNewField && cellLinhVuc && isNaN(Number(cellLinhVuc.replace(/[^\d]/g, '')))) {
+                // Tạo Group Lĩnh Vực Mới
+                currentFieldGroup = {
+                  id: Date.now().toString() + Math.random().toString(),
+                  fieldName: cellLinhVuc,
+                  goals: []
+                };
+                newFieldGroups.push(currentFieldGroup);
+                fieldIndex++;
+              }
+
+              // Xử lý mục tiêu dài hạn
+              if (cellMucTieu && currentFieldGroup) {
+                // Đôi khi mục tiêu bị gộp thành nhiều đoạn văn có số (VD: 1. Làm gì đó \n 2. Làm gì đó)
+                // Tách theo gạch đầu dòng hoặc số (tuỳ ý)
+                // Để đơn giản, ta cho nguyên khối vào 1 mục tiêu (hoặc tách theo newline)
+                const mucTieuLines = cellMucTieu.split(/\n+/).map(line => line.trim()).filter(line => line);
+                if (mucTieuLines.length > 0) {
+                  // Lấy dòng đầu tiên làm đại diện hoặc gộp lại
+                  currentFieldGroup.goals.push({
+                    id: Date.now().toString() + Math.random().toString(),
+                    goal: cellMucTieu,
+                    percentage: 0,
+                    note: ''
+                  });
+                }
+              }
+            }
+            break; // Chỉ cần quét bảng đầu tiên khớp
+          }
+        }
+
+        if (foundPlanTable && newFieldGroups.length > 0) {
+          setMod3FieldGroups(newFieldGroups);
+        } else {
+          alert("Trích xuất text thành công nhưng không tìm thấy bảng có cột 'Lĩnh vực' và 'Mục tiêu dài hạn'.");
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Lỗi khi đọc file DOCX. Vui lòng thử lại.");
+    } finally {
+      setMod3Loading(false);
+      e.target.value = ''; // Reset input
+    }
+  };
 
   // Effect: Call controller to calculate age (Mode 1 Only mainly)
   useEffect(() => {
@@ -1918,7 +2083,7 @@ const App: React.FC = () => {
         }
       }, 1).then(res => {
         if (res.age && res.age !== studentInfo.age) {
-           setStudentInfo(prev => ({ ...prev, age: res.age! }));
+          setStudentInfo(prev => ({ ...prev, age: res.age! }));
         }
       }).catch(err => console.warn(err));
     }
@@ -1933,7 +2098,7 @@ const App: React.FC = () => {
 
   // --- MODE 1 HANDLERS ---
   const toggleLevel = (level: number) => {
-    setSelectedLevels(prev => 
+    setSelectedLevels(prev =>
       prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level].sort()
     );
   };
@@ -1959,7 +2124,7 @@ const App: React.FC = () => {
   };
 
   const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ''); 
+    let value = e.target.value.replace(/\D/g, '');
     if (value.length > 8) value = value.slice(0, 8);
     let formatted = value;
     if (value.length > 4) formatted = `${value.slice(0, 2)}/${value.slice(2, 4)}/${value.slice(4)}`;
@@ -2006,10 +2171,10 @@ const App: React.FC = () => {
     setResult(null);
 
     let progressInterval: any = setInterval(() => {
-       setLoadingProgress(prev => {
-         const next = prev + Math.random() * 2;
-         return next > 90 ? 90 : Math.round(next);
-       });
+      setLoadingProgress(prev => {
+        const next = prev + Math.random() * 2;
+        return next > 90 ? 90 : Math.round(next);
+      });
     }, 500);
 
     try {
@@ -2028,7 +2193,7 @@ const App: React.FC = () => {
       clearInterval(progressInterval);
       setLoadingProgress(100);
       setLoadingMessage("Hoàn tất!");
-      
+
       setTimeout(() => {
         if (coreResponse.esdmResult) {
           setResult(coreResponse.esdmResult);
@@ -2077,10 +2242,10 @@ const App: React.FC = () => {
       const url = "https://docs.google.com/spreadsheets/d/1Os3f0967Po5wiJUEnCS51RhhikyMQcFD/export?format=xlsx";
       const response = await fetch(url);
       if (!response.ok) throw new Error("Không thể tải dữ liệu chuẩn.");
-      
+
       const blob = await response.blob();
       const file = new File([blob], "ESDM_Data.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      
+
       const res = await main_controller({ action: 'PARSE_EXCEL', payload: { file } }, 2);
       if (res.levelsData) setEsdmData(res.levelsData);
     } catch (err) {
@@ -2099,7 +2264,7 @@ const App: React.FC = () => {
   };
 
   const handleMode2TemplateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if(e.target.files && e.target.files[0]) setMode2Template(e.target.files[0]);
+    if (e.target.files && e.target.files[0]) setMode2Template(e.target.files[0]);
   }
 
   const toggleGoalSelection = (levelName: string, domainName: string, goalId: string) => {
@@ -2130,15 +2295,15 @@ const App: React.FC = () => {
   };
 
   const updateGoalSuffix = (levelName: string, domainName: string, goalId: string, suffix: GoalSuffix) => {
-     setSelections(prev => prev.map(s => {
-       if (s.level === levelName && s.domain === domainName) {
-         return {
-           ...s,
-           goals: s.goals.map(g => g.id === goalId ? { ...g, suffix } : g)
-         };
-       }
-       return s;
-     }));
+    setSelections(prev => prev.map(s => {
+      if (s.level === levelName && s.domain === domainName) {
+        return {
+          ...s,
+          goals: s.goals.map(g => g.id === goalId ? { ...g, suffix } : g)
+        };
+      }
+      return s;
+    }));
   };
 
   const generateIEP = async () => {
@@ -2154,7 +2319,7 @@ const App: React.FC = () => {
           smartSplitting
         }
       }, 2);
-      
+
       if (res.blob && res.filename) {
         const url = URL.createObjectURL(res.blob);
         const link = document.createElement('a');
@@ -2164,7 +2329,7 @@ const App: React.FC = () => {
         link.click();
         document.body.removeChild(link);
       }
-    } catch(e) {
+    } catch (e) {
       console.error(e);
       alert("Lỗi tạo IEP.");
     }
@@ -2334,8 +2499,8 @@ const App: React.FC = () => {
         {/* Modern Background */}
         <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950"></div>
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-            <div className="absolute top-[10%] left-[20%] w-72 h-72 bg-indigo-600/20 rounded-full blur-[80px] animate-pulse"></div>
-            <div className="absolute bottom-[10%] right-[20%] w-96 h-96 bg-purple-600/10 rounded-full blur-[100px] animate-pulse delay-700"></div>
+          <div className="absolute top-[10%] left-[20%] w-72 h-72 bg-indigo-600/20 rounded-full blur-[80px] animate-pulse"></div>
+          <div className="absolute bottom-[10%] right-[20%] w-96 h-96 bg-purple-600/10 rounded-full blur-[100px] animate-pulse delay-700"></div>
         </div>
 
         <div className="relative z-10 bg-white/5 backdrop-blur-2xl p-8 rounded-3xl shadow-2xl w-full max-w-md border border-white/10 ring-1 ring-white/5">
@@ -2354,11 +2519,11 @@ const App: React.FC = () => {
           <form onSubmit={handleLicenseSubmit} className="space-y-5">
             <div className="relative group">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl blur opacity-0 group-hover:opacity-30 transition duration-500"></div>
-              <input 
-                type="text" 
-                value={inputKey} 
-                onChange={(e) => setInputKey(e.target.value)} 
-                placeholder="XXXX-XXXX-XXXX" 
+              <input
+                type="text"
+                value={inputKey}
+                onChange={(e) => setInputKey(e.target.value)}
+                placeholder="XXXX-XXXX-XXXX"
                 className="relative w-full px-4 py-4 bg-slate-900/50 border border-slate-700 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-600 font-mono text-center tracking-[0.2em] text-lg text-white shadow-inner"
                 disabled={licenseState === 'checking' || licenseState === 'locked'}
               />
@@ -2370,22 +2535,22 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <button 
+            <button
               type="submit"
-              disabled={licenseState === 'checking' || licenseState === 'locked' || !inputKey.trim()} 
+              disabled={licenseState === 'checking' || licenseState === 'locked' || !inputKey.trim()}
               className="group relative w-full h-12 flex items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 font-bold text-white shadow-[0_0_20px_rgba(79,70,229,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(79,70,229,0.5)] disabled:opacity-70 disabled:hover:scale-100"
             >
               <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out z-10"></span>
               <span className="relative z-20 flex items-center gap-2">
                 {licenseState === 'checking' ? (
-                   <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Đang kiểm tra...</>
+                  <><svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> Đang kiểm tra...</>
                 ) : 'Kích hoạt ngay'}
               </span>
             </button>
           </form>
-          
+
           <div className="mt-8 pt-6 border-t border-white/5 text-center">
-             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Giao diện bởi ThuongVD.</p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Giao diện bởi ThuongVD.</p>
           </div>
         </div>
       </div>
@@ -2404,8 +2569,8 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-700 to-indigo-500">ESDM Expert v2.5.0</h1>
           </div>
           <div className="flex items-center gap-2">
-            <select 
-              value={appMode} 
+            <select
+              value={appMode}
               onChange={(e) => setAppMode(Number(e.target.value))}
               className="text-sm bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
@@ -2420,7 +2585,7 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 pt-8">
-        
+
         {/* === MODE 1 UI === */}
         {appMode === 1 && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -2551,33 +2716,33 @@ const App: React.FC = () => {
               {status === ProcessingStatus.ERROR && <StatusAlert type="error" message={error || "Lỗi không xác định."} />}
               {result && (
                 <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 space-y-6">
-                   <div className="flex justify-between items-center">
-                     <h3 className="text-2xl font-black text-slate-800 tracking-tight">Kết quả</h3>
-                     <Button onClick={fillTemplate} disabled={!templateFile} variant={templateFile ? 'primary' : 'secondary'} className={`h-12 px-8 rounded-2xl ${templateFile ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : ''}`}>
-                       {templateFile ? 'Tải Word' : 'Thiếu file mẫu'}
-                     </Button>
-                   </div>
-                   <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden ring-1 ring-slate-900/5">
-                      <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between">
-                         <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kết quả</p><p className="text-xl font-bold text-slate-800">{studentInfo.name || '---'}</p></div>
-                      </div>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead><tr className="bg-slate-50 text-slate-500 border-b border-slate-100"><th className="p-4 text-left font-bold">Kỹ năng</th>{selectedLevels.map(l => <th key={l} className="p-4 text-center font-bold">CĐ {l}</th>)}</tr></thead>
-                          <tbody>
-                            {result.table.map((row, idx) => (
-                              <tr key={idx} className={`border-b border-slate-50 hover:bg-indigo-50/20 transition-colors ${row.skill === "Tổng điểm" ? "font-bold bg-indigo-50/10 text-indigo-700" : "text-slate-600"}`}>
-                                <td className="p-4">{row.skill}</td>
-                                {selectedLevels.map(l => <td key={l} className="p-4 text-center font-mono font-medium">{(row as any)[`level${l}`]}</td>)}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="p-8 bg-slate-50/30">
-                        <div className="p-6 bg-white rounded-2xl border border-slate-100 text-slate-600 text-sm leading-relaxed italic shadow-inner">{result.summary}</div>
-                      </div>
-                   </div>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-2xl font-black text-slate-800 tracking-tight">Kết quả</h3>
+                    <Button onClick={fillTemplate} disabled={!templateFile} variant={templateFile ? 'primary' : 'secondary'} className={`h-12 px-8 rounded-2xl ${templateFile ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : ''}`}>
+                      {templateFile ? 'Tải Word' : 'Thiếu file mẫu'}
+                    </Button>
+                  </div>
+                  <div className="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden ring-1 ring-slate-900/5">
+                    <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between">
+                      <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kết quả</p><p className="text-xl font-bold text-slate-800">{studentInfo.name || '---'}</p></div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead><tr className="bg-slate-50 text-slate-500 border-b border-slate-100"><th className="p-4 text-left font-bold">Kỹ năng</th>{selectedLevels.map(l => <th key={l} className="p-4 text-center font-bold">CĐ {l}</th>)}</tr></thead>
+                        <tbody>
+                          {result.table.map((row, idx) => (
+                            <tr key={idx} className={`border-b border-slate-50 hover:bg-indigo-50/20 transition-colors ${row.skill === "Tổng điểm" ? "font-bold bg-indigo-50/10 text-indigo-700" : "text-slate-600"}`}>
+                              <td className="p-4">{row.skill}</td>
+                              {selectedLevels.map(l => <td key={l} className="p-4 text-center font-mono font-medium">{(row as any)[`level${l}`]}</td>)}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="p-8 bg-slate-50/30">
+                      <div className="p-6 bg-white rounded-2xl border border-slate-100 text-slate-600 text-sm leading-relaxed italic shadow-inner">{result.summary}</div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -2588,234 +2753,265 @@ const App: React.FC = () => {
         {appMode === 2 && (
           <div className="space-y-8">
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-               <h2 className="text-xl font-bold text-slate-800 mb-6">1. Dữ liệu Mục tiêu (Excel)</h2>
-               <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  {loadingDefaultData ? (
-                    <div className="flex items-center text-indigo-600 font-medium">
-                      <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                      Đang tải dữ liệu chuẩn từ hệ thống...
-                    </div>
-                  ) : esdmData.length > 0 ? (
-                    <div className="flex items-center text-emerald-600 font-bold">
-                      <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
-                      Dữ liệu chuẩn ESDM đã sẵn sàng.
-                    </div>
-                  ) : (
-                    <div className="text-slate-500">Chưa có dữ liệu. Đang thử lại...</div>
-                  )}
-               </div>
+              <h2 className="text-xl font-bold text-slate-800 mb-6">1. Dữ liệu Mục tiêu (Excel)</h2>
+              <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                {loadingDefaultData ? (
+                  <div className="flex items-center text-indigo-600 font-medium">
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    Đang tải dữ liệu chuẩn từ hệ thống...
+                  </div>
+                ) : esdmData.length > 0 ? (
+                  <div className="flex items-center text-emerald-600 font-bold">
+                    <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                    Dữ liệu chuẩn ESDM đã sẵn sàng.
+                  </div>
+                ) : (
+                  <div className="text-slate-500">Chưa có dữ liệu. Đang thử lại...</div>
+                )}
+              </div>
             </div>
 
             {esdmData.length > 0 && (
-               <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-slate-800">2. Chọn Mục tiêu Kế hoạch (IEP)</h2>
-                    <label className="flex items-center gap-2 cursor-pointer bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
-                      <input 
-                        type="checkbox" 
-                        checked={smartSplitting} 
-                        onChange={(e) => setSmartSplitting(e.target.checked)} 
-                        className="w-5 h-5 accent-indigo-600 rounded"
-                      />
-                      <span className="text-sm font-bold text-indigo-700">Mục tiêu nhỏ thông minh</span>
-                    </label>
-                 </div>
-                 <div className="space-y-6">
-                   {esdmData.map((level, idx) => (
-                     <div key={idx} className="border border-slate-200 rounded-xl p-4">
-                       <h3 className="font-bold text-lg text-indigo-600 mb-4">{level.name}</h3>
-                       {level.domains.map((domain, dIdx) => {
-                         const domainKey = `${level.name}-${domain.name}`;
-                         const isExpanded = expandedDomains[domainKey];
-                         const selectedCount = selections.find(s => s.level === level.name && s.domain === domain.name)?.goals.length || 0;
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold text-slate-800">2. Chọn Mục tiêu Kế hoạch (IEP)</h2>
+                  <label className="flex items-center gap-2 cursor-pointer bg-indigo-50 px-4 py-2 rounded-lg border border-indigo-100 hover:bg-indigo-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={smartSplitting}
+                      onChange={(e) => setSmartSplitting(e.target.checked)}
+                      className="w-5 h-5 accent-indigo-600 rounded"
+                    />
+                    <span className="text-sm font-bold text-indigo-700">Mục tiêu nhỏ thông minh</span>
+                  </label>
+                </div>
+                <div className="space-y-6">
+                  {esdmData.map((level, idx) => (
+                    <div key={idx} className="border border-slate-200 rounded-xl p-4">
+                      <h3 className="font-bold text-lg text-indigo-600 mb-4">{level.name}</h3>
+                      {level.domains.map((domain, dIdx) => {
+                        const domainKey = `${level.name}-${domain.name}`;
+                        const isExpanded = expandedDomains[domainKey];
+                        const selectedCount = selections.find(s => s.level === level.name && s.domain === domain.name)?.goals.length || 0;
 
-                         return (
-                           <div key={dIdx} className="mb-3 last:mb-0">
-                              <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100 hover:border-indigo-200 transition-colors cursor-pointer" onClick={() => toggleDomain(domainKey)}>
-                                <div className="flex items-center gap-3">
-                                  <button className={`w-6 h-6 flex items-center justify-center rounded-full text-white font-bold text-xs transition-colors ${isExpanded ? 'bg-indigo-500' : 'bg-slate-300'}`}>
-                                    {isExpanded ? '-' : '+'}
-                                  </button>
-                                  <h4 className="font-semibold text-slate-700">{domain.name}</h4>
-                                </div>
-                                {selectedCount > 0 && (
-                                  <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">
-                                    Đã chọn: {selectedCount}
-                                  </span>
-                                )}
+                        return (
+                          <div key={dIdx} className="mb-3 last:mb-0">
+                            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100 hover:border-indigo-200 transition-colors cursor-pointer" onClick={() => toggleDomain(domainKey)}>
+                              <div className="flex items-center gap-3">
+                                <button className={`w-6 h-6 flex items-center justify-center rounded-full text-white font-bold text-xs transition-colors ${isExpanded ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+                                  {isExpanded ? '-' : '+'}
+                                </button>
+                                <h4 className="font-semibold text-slate-700">{domain.name}</h4>
                               </div>
-                              
-                              {isExpanded && (
-                                <div className="mt-2 pl-4 grid grid-cols-1 md:grid-cols-2 gap-2 animate-in slide-in-from-top-2 fade-in duration-200">
-                                   {domain.goals.map((goal, gIdx) => {
-                                     const isSelected = selections.some(s => s.level === level.name && s.domain === domain.name && s.goals.some(g => g.id === goal.id));
-                                     const currentSuffix = selections.find(s => s.level === level.name && s.domain === domain.name)?.goals.find(g => g.id === goal.id)?.suffix || '(MTNT)';
-                                     
-                                     return (
-                                       <div key={gIdx} className={`p-2 rounded border transition-colors ${isSelected ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-100'}`}>
-                                          <div className="flex items-start gap-2">
-                                            <input 
-                                              type="checkbox" 
-                                              checked={isSelected} 
-                                              onChange={() => toggleGoalSelection(level.name, domain.name, goal.id)}
-                                              className="mt-1 accent-indigo-600"
-                                            />
-                                            <div className="flex-1">
-                                               <p className="text-sm font-medium text-slate-800"><span className="text-indigo-500 font-bold mr-1">{goal.id}</span> {goal.text}</p>
-                                               {isSelected && (
-                                                  <select 
-                                                    value={currentSuffix} 
-                                                    onChange={(e) => updateGoalSuffix(level.name, domain.name, goal.id, e.target.value as GoalSuffix)}
-                                                    className="mt-2 text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:border-indigo-500 outline-none w-full"
-                                                  >
-                                                    <option value="(MTNT)">Ngắn hạn (MTNT)</option>
-                                                    <option value="(MTC)">Chung (MTC)</option>
-                                                    <option value="(MTP)">Phụ (MTP)</option>
-                                                  </select>
-                                               )}
-                                            </div>
-                                          </div>
-                                       </div>
-                                     )
-                                   })}
-                                </div>
+                              {selectedCount > 0 && (
+                                <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">
+                                  Đã chọn: {selectedCount}
+                                </span>
                               )}
-                           </div>
-                         )
-                       })}
-                     </div>
-                   ))}
-                 </div>
-               </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="mt-2 pl-4 grid grid-cols-1 md:grid-cols-2 gap-2 animate-in slide-in-from-top-2 fade-in duration-200">
+                                {domain.goals.map((goal, gIdx) => {
+                                  const isSelected = selections.some(s => s.level === level.name && s.domain === domain.name && s.goals.some(g => g.id === goal.id));
+                                  const currentSuffix = selections.find(s => s.level === level.name && s.domain === domain.name)?.goals.find(g => g.id === goal.id)?.suffix || '(MTNT)';
+
+                                  return (
+                                    <div key={gIdx} className={`p-2 rounded border transition-colors ${isSelected ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-100'}`}>
+                                      <div className="flex items-start gap-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={() => toggleGoalSelection(level.name, domain.name, goal.id)}
+                                          className="mt-1 accent-indigo-600"
+                                        />
+                                        <div className="flex-1">
+                                          <p className="text-sm font-medium text-slate-800"><span className="text-indigo-500 font-bold mr-1">{goal.id}</span> {goal.text}</p>
+                                          {isSelected && (
+                                            <select
+                                              value={currentSuffix}
+                                              onChange={(e) => updateGoalSuffix(level.name, domain.name, goal.id, e.target.value as GoalSuffix)}
+                                              className="mt-2 text-xs border border-slate-300 rounded px-2 py-1 bg-white focus:border-indigo-500 outline-none w-full"
+                                            >
+                                              <option value="(MTNT)">Ngắn hạn (MTNT)</option>
+                                              <option value="(MTC)">Chung (MTC)</option>
+                                              <option value="(MTP)">Phụ (MTP)</option>
+                                            </select>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-               <h2 className="text-xl font-bold text-slate-800 mb-6">3. Tải Template & Xuất Word</h2>
-               <div className="flex flex-col gap-4">
-                  <div className="flex items-center gap-4">
-                      <input type="file" accept=".docx" onChange={handleMode2TemplateUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"/>
-                      {mode2Template && <span className="text-emerald-600 font-bold">Template: {mode2Template.name}</span>}
-                  </div>
-                  <Button 
-                    onClick={generateIEP} 
-                    disabled={!mode2Template || selections.length === 0}
-                    className="h-12 text-lg w-full md:w-auto self-start"
-                  >
-                     Tạo File Kế Hoạch (IEP)
-                  </Button>
-               </div>
+              <h2 className="text-xl font-bold text-slate-800 mb-6">3. Tải Template & Xuất Word</h2>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <input type="file" accept=".docx" onChange={handleMode2TemplateUpload} className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" />
+                  {mode2Template && <span className="text-emerald-600 font-bold">Template: {mode2Template.name}</span>}
+                </div>
+                <Button
+                  onClick={generateIEP}
+                  disabled={!mode2Template || selections.length === 0}
+                  className="h-12 text-lg w-full md:w-auto self-start"
+                >
+                  Tạo File Kế Hoạch (IEP)
+                </Button>
+              </div>
             </div>
           </div>
         )}
 
         {/* === MODE 3 UI === */}
         {appMode === 3 && (
-           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {/* CHILD INFO */}
-              <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-                <h2 className="text-lg font-bold text-slate-800 mb-4">Thông tin trẻ & Báo cáo</h2>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase">Tên trẻ</label>
-                    <input type="text" name="name" value={mod3ChildInfo.name} onChange={handleMod3ChildChange} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"/>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase">Ngày sinh</label>
-                    <input type="text" name="dob" value={mod3ChildInfo.dob} onChange={handleMod3ChildChange} placeholder="dd/mm/yyyy" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"/>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase">Tháng báo cáo</label>
-                    <input type="text" name="reportMonth" value={mod3ChildInfo.reportMonth} onChange={handleMod3ChildChange} placeholder="12/2023" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg"/>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-400 uppercase">Gửi tới (Danh xưng)</label>
-                    <select name="caregiverTitle" value={mod3ChildInfo.caregiverTitle} onChange={handleMod3ChildChange} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
-                      <option value="bố">Bố</option>
-                      <option value="mẹ">Mẹ</option>
-                      <option value="bố mẹ">Bố Mẹ</option>
-                    </select>
-                  </div>
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* DOCX UPLOAD */}
+            <div className="bg-indigo-50 p-6 rounded-3xl shadow-sm border border-indigo-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-indigo-800">Tự động điền qua File (.docx)</h3>
+                <p className="text-xs text-indigo-600 mt-1">Hệ thống sẽ thử trích xuất thông tin trẻ và Bảng Kế hoạch từ file này.</p>
+              </div>
+              <div>
+                <label className="cursor-pointer bg-white px-4 py-2 rounded-xl text-sm font-bold text-indigo-600 shadow-sm border border-indigo-200 hover:bg-slate-50 transition-colors">
+                  Tải file Word
+                  <input type="file" accept=".docx" onChange={handleMod3FileChange} className="hidden" />
+                </label>
+              </div>
+            </div>
+
+            {/* CHILD INFO */}
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-slate-800">Thông tin trẻ & Báo cáo</h2>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Phong cách Đề Xuất</label>
+                  <select name="styleProposal" value={mod3ChildInfo.styleProposal || 'Mặc định'} onChange={handleMod3ChildChange} className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 font-bold text-indigo-600 outline-none focus:border-indigo-400">
+                    <option value="Mặc định">Mặc định</option>
+                    <option value="Nghiêm túc">Nghiêm túc</option>
+                    <option value="Chuyên nghiệp">Chuyên nghiệp</option>
+                    <option value="Dịu dàng">Dịu dàng</option>
+                    <option value="Nhiệt tình">Nhiệt tình</option>
+                  </select>
                 </div>
               </div>
 
-              {/* FIELDS & GOALS */}
-              <div className="space-y-4">
-                {mod3FieldGroups.map((group, idx) => (
-                  <div key={group.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative group/card">
-                    <button onClick={() => removeFieldGroup(group.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover/card:opacity-100 transition-opacity">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeWidth="2"/></svg>
-                    </button>
-                    
-                    <div className="mb-4">
-                      <label className="text-xs font-bold text-indigo-500 uppercase mb-1 block">Lĩnh vực {idx + 1}</label>
-                      <input 
-                        type="text" 
-                        value={group.fieldName} 
-                        onChange={(e) => updateFieldGroup(group.id, e.target.value)} 
-                        placeholder="VD: Kỹ năng xã hội" 
-                        className="w-full text-lg font-bold text-slate-800 border-b border-slate-200 focus:border-indigo-500 outline-none py-1 placeholder:text-slate-300"
-                      />
-                    </div>
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Họ và Tên</label>
+                  <input type="text" name="name" value={mod3ChildInfo.name} onChange={handleMod3ChildChange} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase">Mã Số</label>
+                  <input type="text" name="studentId" value={mod3ChildInfo.studentId || ''} onChange={handleMod3ChildChange} placeholder="HS-01" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase">Ngày sinh</label>
+                  <input type="text" name="dob" value={mod3ChildInfo.dob} onChange={handleMod3ChildChange} placeholder="dd/mm/yyyy" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase">Ngày đánh giá</label>
+                  <input type="text" name="evalDate" value={mod3ChildInfo.evalDate || ''} onChange={handleMod3ChildChange} placeholder="dd/mm/yyyy" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase">Danh xưng</label>
+                  <select name="caregiverTitle" value={mod3ChildInfo.caregiverTitle} onChange={handleMod3ChildChange} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                    <option value="bố">Bố</option>
+                    <option value="mẹ">Mẹ</option>
+                    <option value="bố mẹ">Bố Mẹ</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
-                    <div className="space-y-3 pl-4 border-l-2 border-slate-100">
-                      {group.goals.map((goal) => (
-                        <div key={goal.id} className="grid grid-cols-12 gap-4 items-center group/goal mb-4 bg-slate-50 p-2 rounded-lg">
-                           <div className="col-span-12 md:col-span-5">
-                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Mục tiêu</label>
-                             <input type="text" value={goal.goal} onChange={(e) => updateGoal(group.id, goal.id, 'goal', e.target.value)} placeholder="Nhập mục tiêu..." className="w-full text-sm px-2 py-2 bg-white rounded border border-slate-200 focus:border-indigo-200 outline-none"/>
-                           </div>
-                           <div className="col-span-12 md:col-span-3">
-                             <div className="flex justify-between mb-1">
-                               <label className="text-[10px] font-bold text-slate-400 uppercase">Mức độ đạt</label>
-                               <span className="text-[10px] font-bold text-indigo-600">{goal.percentage}%</span>
-                             </div>
-                             <input 
-                               type="range" 
-                               min="0" 
-                               max="100" 
-                               value={goal.percentage} 
-                               onChange={(e) => updateGoal(group.id, goal.id, 'percentage', parseInt(e.target.value))} 
-                               className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                             />
-                           </div>
-                           <div className="col-span-11 md:col-span-3">
-                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Ghi chú / Nhận xét</label>
-                             <input type="text" value={goal.note} onChange={(e) => updateGoal(group.id, goal.id, 'note', e.target.value)} placeholder="Chi tiết..." className="w-full text-sm px-2 py-2 bg-white rounded border border-slate-200 focus:border-indigo-200 outline-none italic text-slate-600"/>
-                           </div>
-                           <div className="col-span-1 text-center flex items-end justify-center h-full pb-2">
-                             <button onClick={() => removeGoal(group.id, goal.id)} className="text-slate-300 hover:text-red-400 p-1"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/></svg></button>
-                           </div>
-                        </div>
-                      ))}
-                      <button onClick={() => addGoalToField(group.id)} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-2">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg> Thêm mục tiêu
-                      </button>
-                    </div>
+            {/* FIELDS & GOALS */}
+            <div className="space-y-4">
+              {mod3FieldGroups.map((group, idx) => (
+                <div key={group.id} className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 relative group/card">
+                  <button onClick={() => removeFieldGroup(group.id)} className="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" strokeWidth="2" /></svg>
+                  </button>
+
+                  <div className="mb-4">
+                    <label className="text-xs font-bold text-indigo-500 uppercase mb-1 block">Lĩnh vực {idx + 1}</label>
+                    <input
+                      type="text"
+                      value={group.fieldName}
+                      onChange={(e) => updateFieldGroup(group.id, e.target.value)}
+                      placeholder="VD: Kỹ năng xã hội"
+                      className="w-full text-lg font-bold text-slate-800 border-b border-slate-200 focus:border-indigo-500 outline-none py-1 placeholder:text-slate-300"
+                    />
                   </div>
-                ))}
-                
-                <button onClick={addFieldGroup} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2"/></svg>
-                  Thêm Lĩnh vực mới
-                </button>
-              </div>
 
-              {/* ACTION */}
-              <div className="flex justify-end pt-4">
-                <Button 
-                  onClick={generateReport} 
-                  disabled={mod3Loading}
-                  className="h-14 px-8 text-lg shadow-xl shadow-indigo-100 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl"
-                >
-                  {mod3Loading ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                      Đang tạo báo cáo...
-                    </>
-                  ) : "Tạo Báo Cáo (Word)"}
-                </Button>
-              </div>
-           </div>
+                  <div className="space-y-3 pl-4 border-l-2 border-slate-100">
+                    {group.goals.map((goal) => (
+                      <div key={goal.id} className="grid grid-cols-12 gap-4 items-center group/goal mb-4 bg-slate-50 p-2 rounded-lg">
+                        <div className="col-span-12 md:col-span-5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Mục tiêu</label>
+                          <input type="text" value={goal.goal} onChange={(e) => updateGoal(group.id, goal.id, 'goal', e.target.value)} placeholder="Nhập mục tiêu..." className="w-full text-sm px-2 py-2 bg-white rounded border border-slate-200 focus:border-indigo-200 outline-none" />
+                        </div>
+                        <div className="col-span-12 md:col-span-3">
+                          <div className="flex justify-between mb-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase">Mức độ đạt</label>
+                            <span className="text-[10px] font-bold text-indigo-600">{goal.percentage}%</span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={goal.percentage}
+                            onChange={(e) => updateGoal(group.id, goal.id, 'percentage', parseInt(e.target.value))}
+                            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                          />
+                        </div>
+                        <div className="col-span-11 md:col-span-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Ghi chú / Nhận xét</label>
+                          <input type="text" value={goal.note} onChange={(e) => updateGoal(group.id, goal.id, 'note', e.target.value)} placeholder="Chi tiết..." className="w-full text-sm px-2 py-2 bg-white rounded border border-slate-200 focus:border-indigo-200 outline-none italic text-slate-600" />
+                        </div>
+                        <div className="col-span-1 text-center flex items-end justify-center h-full pb-2">
+                          <button onClick={() => removeGoal(group.id, goal.id)} className="text-slate-300 hover:text-red-400 p-1"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" /></svg></button>
+                        </div>
+                      </div>
+                    ))}
+                    <button onClick={() => addGoalToField(group.id)} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-2">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" /></svg> Thêm mục tiêu
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <button onClick={addFieldGroup} className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" strokeWidth="2" /></svg>
+                Thêm Lĩnh vực mới
+              </button>
+            </div>
+
+            {/* ACTION */}
+            <div className="flex justify-end pt-4">
+              <Button
+                onClick={generateReport}
+                disabled={mod3Loading}
+                className="h-14 px-8 text-lg shadow-xl shadow-indigo-100 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl"
+              >
+                {mod3Loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                    Đang tạo báo cáo...
+                  </>
+                ) : "Tạo Báo Cáo (Word)"}
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* === MODE 4 UI === */}
@@ -2824,18 +3020,18 @@ const App: React.FC = () => {
             <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
               <h2 className="text-xl font-bold text-slate-800 mb-2">Sửa Chữa Bảng Chuyên Sâu</h2>
               <p className="text-sm text-slate-500 mb-6">Tự động phát hiện và sửa các lỗi bảng biểu trong file Word mà không làm thay đổi nội dung văn bản.</p>
-              
+
               <div className="flex items-center gap-4">
                 <label className="flex-1 cursor-pointer">
                   <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 transition-all group">
                     {mod4File ? (
                       <div className="flex flex-col items-center">
-                        <svg className="w-8 h-8 text-emerald-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeWidth="2"/></svg>
+                        <svg className="w-8 h-8 text-emerald-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeWidth="2" /></svg>
                         <span className="font-bold text-slate-700">{mod4File.name}</span>
                       </div>
                     ) : (
                       <>
-                        <svg className="w-8 h-8 text-slate-400 group-hover:text-indigo-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeWidth="2"/></svg>
+                        <svg className="w-8 h-8 text-slate-400 group-hover:text-indigo-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" strokeWidth="2" /></svg>
                         <span className="text-sm text-slate-500">Tải file Word (.docx)</span>
                       </>
                     )}
@@ -2843,8 +3039,8 @@ const App: React.FC = () => {
                   </div>
                 </label>
                 {mod4File && (
-                  <Button 
-                    onClick={handleMod4Fix} 
+                  <Button
+                    onClick={handleMod4Fix}
                     disabled={mod4Loading || mod4Tables.length === 0}
                     className="h-32 px-8 text-lg rounded-2xl shadow-xl shadow-indigo-100 bg-indigo-600 hover:bg-indigo-700 text-white"
                   >
@@ -2863,7 +3059,7 @@ const App: React.FC = () => {
                     <span className="text-xs bg-indigo-100 text-indigo-600 px-2 py-1 rounded font-bold">Kiến nghị sửa</span>
                   </div>
                 </div>
-                
+
                 {mod4Tables.map((tbl) => (
                   <div key={tbl.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all ${tbl.options.deleteTable ? 'opacity-50 ring-2 ring-red-400' : (tbl.issues.length > 0 ? 'border-red-200 ring-2 ring-red-50' : 'border-slate-100')}`}>
                     <div className="p-4 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
@@ -2882,7 +3078,7 @@ const App: React.FC = () => {
                           ) : <span className="text-xs text-emerald-600 font-medium">Bảng ổn định</span>}
                         </div>
                       </div>
-                      
+
                       <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input type="checkbox" checked={tbl.options.deleteTable} onChange={() => toggleMod4Option(tbl.id, 'deleteTable')} className="w-4 h-4 rounded text-red-600 focus:ring-red-500 border-slate-300" />
@@ -2896,110 +3092,110 @@ const App: React.FC = () => {
                         {/* Preview Column */}
                         <div className="col-span-12 lg:col-span-8 p-6 bg-slate-50/50 border-b lg:border-b-0 lg:border-r border-slate-100 overflow-x-auto">
                           {tbl.options.matrixMode && tbl.options.matrixType === 'replace' ? (
-                              <div>
-                                <h5 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-3">Preview Bảng Ma Trận (Thay thế)</h5>
-                                <MatrixPreview 
-                                  mode="replace" 
-                                  highlights={tbl.options.matrixHighlights} 
-                                  onToggle={(k) => toggleMod4MatrixHighlight(tbl.id, k)} 
-                                />
-                                <p className="text-xs text-slate-400 mt-2 italic">Click vào các số để tô đỏ (highlight).</p>
-                              </div>
+                            <div>
+                              <h5 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-3">Preview Bảng Ma Trận (Thay thế)</h5>
+                              <MatrixPreview
+                                mode="replace"
+                                highlights={tbl.options.matrixHighlights}
+                                onToggle={(k) => toggleMod4MatrixHighlight(tbl.id, k)}
+                              />
+                              <p className="text-xs text-slate-400 mt-2 italic">Click vào các số để tô đỏ (highlight).</p>
+                            </div>
                           ) : (
                             <div className="min-w-full">
-                                <h5 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-3">Preview Gốc</h5>
-                                <div 
-                                  className="preview-table-container text-xs scale-90 origin-top-left opacity-75 pointer-events-none"
-                                  dangerouslySetInnerHTML={{ __html: tbl.previewHtml }} 
-                                />
+                              <h5 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-3">Preview Gốc</h5>
+                              <div
+                                className="preview-table-container text-xs scale-90 origin-top-left opacity-75 pointer-events-none"
+                                dangerouslySetInnerHTML={{ __html: tbl.previewHtml }}
+                              />
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Options Column */}
                         <div className="col-span-12 lg:col-span-4 p-6 bg-white space-y-6">
-                          
+
                           {/* Standard Fixes */}
                           <div>
-                             <h5 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-3">Sửa chữa cơ bản</h5>
-                             <div className="space-y-2">
-                                <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
-                                  <input type="checkbox" checked={tbl.options.fixBorders} onChange={() => toggleMod4Option(tbl.id, 'fixBorders')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
-                                  <span className="text-sm font-medium text-slate-700">Đầy đủ viền (Full Borders)</span>
-                                </label>
-                                <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
-                                  <input type="checkbox" checked={tbl.options.autofit} onChange={() => toggleMod4Option(tbl.id, 'autofit')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
-                                  <span className="text-sm font-medium text-slate-700">Autofit (85%)</span>
-                                </label>
-                                <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
-                                  <input type="checkbox" checked={tbl.options.fixSpacing} onChange={() => toggleMod4Option(tbl.id, 'fixSpacing')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
-                                  <span className="text-sm font-medium text-slate-700">Xoá khoảng trống thừa</span>
-                                </label>
-                                <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
-                                  <input type="checkbox" checked={tbl.options.fixAlign} onChange={() => toggleMod4Option(tbl.id, 'fixAlign')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
-                                  <div>
-                                     <span className="block text-sm font-medium text-slate-700">Căn chỉnh & Reset thụt lề</span>
-                                     <span className="text-[10px] text-slate-400 block leading-tight">Bỏ indent/tab trừ hàng 1, cột 1</span>
-                                  </div>
-                                </label>
-                             </div>
+                            <h5 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-3">Sửa chữa cơ bản</h5>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
+                                <input type="checkbox" checked={tbl.options.fixBorders} onChange={() => toggleMod4Option(tbl.id, 'fixBorders')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                                <span className="text-sm font-medium text-slate-700">Đầy đủ viền (Full Borders)</span>
+                              </label>
+                              <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
+                                <input type="checkbox" checked={tbl.options.autofit} onChange={() => toggleMod4Option(tbl.id, 'autofit')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                                <span className="text-sm font-medium text-slate-700">Autofit (85%)</span>
+                              </label>
+                              <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
+                                <input type="checkbox" checked={tbl.options.fixSpacing} onChange={() => toggleMod4Option(tbl.id, 'fixSpacing')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                                <span className="text-sm font-medium text-slate-700">Xoá khoảng trống thừa</span>
+                              </label>
+                              <label className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg">
+                                <input type="checkbox" checked={tbl.options.fixAlign} onChange={() => toggleMod4Option(tbl.id, 'fixAlign')} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                                <div>
+                                  <span className="block text-sm font-medium text-slate-700">Căn chỉnh & Reset thụt lề</span>
+                                  <span className="text-[10px] text-slate-400 block leading-tight">Bỏ indent/tab trừ hàng 1, cột 1</span>
+                                </div>
+                              </label>
+                            </div>
                           </div>
 
-                          <hr className="border-slate-100"/>
+                          <hr className="border-slate-100" />
 
                           {/* Advanced Actions */}
                           <div>
                             <h5 className="font-bold text-xs text-slate-400 uppercase tracking-widest mb-3">Nâng cao</h5>
-                            
+
                             <div className="space-y-3">
-                                {/* Rewrite */}
-                                <label className={`flex items-start gap-3 cursor-pointer p-2 rounded-lg border transition-all ${tbl.options.rewrite ? 'bg-indigo-50 border-indigo-200' : 'border-transparent hover:bg-slate-50'}`}>
-                                  <input type="checkbox" checked={tbl.options.rewrite} onChange={() => toggleMod4Option(tbl.id, 'rewrite')} disabled={tbl.options.matrixMode} className="mt-1 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 disabled:opacity-50" />
-                                  <div>
-                                     <span className="block text-sm font-bold text-slate-700">Chức năng "Viết lại"</span>
-                                     <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">Xoá & viết lại text chuẩn form, tách ý, gạch đầu dòng (trừ H1/C1).</span>
-                                  </div>
+                              {/* Rewrite */}
+                              <label className={`flex items-start gap-3 cursor-pointer p-2 rounded-lg border transition-all ${tbl.options.rewrite ? 'bg-indigo-50 border-indigo-200' : 'border-transparent hover:bg-slate-50'}`}>
+                                <input type="checkbox" checked={tbl.options.rewrite} onChange={() => toggleMod4Option(tbl.id, 'rewrite')} disabled={tbl.options.matrixMode} className="mt-1 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 disabled:opacity-50" />
+                                <div>
+                                  <span className="block text-sm font-bold text-slate-700">Chức năng "Viết lại"</span>
+                                  <span className="text-[11px] text-slate-500 block leading-tight mt-0.5">Xoá & viết lại text chuẩn form, tách ý, gạch đầu dòng (trừ H1/C1).</span>
+                                </div>
+                              </label>
+
+                              {/* Matrix Mode */}
+                              <div className={`p-3 rounded-lg border transition-all ${tbl.options.matrixMode ? 'bg-orange-50 border-orange-200' : 'border-transparent hover:bg-slate-50'}`}>
+                                <label className="flex items-center gap-3 cursor-pointer mb-2">
+                                  <input type="checkbox" checked={tbl.options.matrixMode} onChange={() => toggleMod4Option(tbl.id, 'matrixMode')} disabled={tbl.options.rewrite} className="w-4 h-4 rounded text-orange-500 focus:ring-orange-500 border-slate-300 disabled:opacity-50" />
+                                  <span className="text-sm font-bold text-slate-700">Bảng Ma Trận</span>
                                 </label>
 
-                                {/* Matrix Mode */}
-                                <div className={`p-3 rounded-lg border transition-all ${tbl.options.matrixMode ? 'bg-orange-50 border-orange-200' : 'border-transparent hover:bg-slate-50'}`}>
-                                    <label className="flex items-center gap-3 cursor-pointer mb-2">
-                                        <input type="checkbox" checked={tbl.options.matrixMode} onChange={() => toggleMod4Option(tbl.id, 'matrixMode')} disabled={tbl.options.rewrite} className="w-4 h-4 rounded text-orange-500 focus:ring-orange-500 border-slate-300 disabled:opacity-50" />
-                                        <span className="text-sm font-bold text-slate-700">Bảng Ma Trận</span>
-                                    </label>
-                                    
-                                    {tbl.options.matrixMode && (
-                                        <div className="pl-7 space-y-2 animate-in slide-in-from-top-2 fade-in">
-                                            <div className="flex gap-2 text-xs">
-                                                <button 
-                                                    onClick={() => updateMod4MatrixType(tbl.id, 'replace')}
-                                                    className={`px-3 py-1.5 rounded-md font-bold transition-colors ${tbl.options.matrixType === 'replace' ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-slate-500 border border-slate-200'}`}
-                                                >
-                                                    Thay thế
-                                                </button>
-                                                <button 
-                                                    onClick={() => updateMod4MatrixType(tbl.id, 'highlight')}
-                                                    className={`px-3 py-1.5 rounded-md font-bold transition-colors ${tbl.options.matrixType === 'highlight' ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-slate-500 border border-slate-200'}`}
-                                                >
-                                                    Tô đỏ
-                                                </button>
-                                            </div>
-                                            <p className="text-[10px] text-slate-500 italic">
-                                                {tbl.options.matrixType === 'replace' ? "Xoá bảng cũ, chèn bảng ma trận chuẩn." : "Giữ bảng cũ, cho phép tô đỏ các phần tử số."}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Merge Next */}
-                                {tbl.canMergeNext && (
-                                  <label className="flex items-start gap-3 cursor-pointer p-2 bg-indigo-50/50 rounded-lg border border-indigo-100">
-                                    <input type="checkbox" checked={tbl.options.mergeNext} onChange={() => toggleMod4Option(tbl.id, 'mergeNext')} className="mt-1 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-indigo-300" />
-                                    <div>
-                                      <span className="block font-bold text-indigo-700 text-sm">Gộp với bảng kế tiếp</span>
+                                {tbl.options.matrixMode && (
+                                  <div className="pl-7 space-y-2 animate-in slide-in-from-top-2 fade-in">
+                                    <div className="flex gap-2 text-xs">
+                                      <button
+                                        onClick={() => updateMod4MatrixType(tbl.id, 'replace')}
+                                        className={`px-3 py-1.5 rounded-md font-bold transition-colors ${tbl.options.matrixType === 'replace' ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-slate-500 border border-slate-200'}`}
+                                      >
+                                        Thay thế
+                                      </button>
+                                      <button
+                                        onClick={() => updateMod4MatrixType(tbl.id, 'highlight')}
+                                        className={`px-3 py-1.5 rounded-md font-bold transition-colors ${tbl.options.matrixType === 'highlight' ? 'bg-orange-500 text-white shadow-sm' : 'bg-white text-slate-500 border border-slate-200'}`}
+                                      >
+                                        Tô đỏ
+                                      </button>
                                     </div>
-                                  </label>
+                                    <p className="text-[10px] text-slate-500 italic">
+                                      {tbl.options.matrixType === 'replace' ? "Xoá bảng cũ, chèn bảng ma trận chuẩn." : "Giữ bảng cũ, cho phép tô đỏ các phần tử số."}
+                                    </p>
+                                  </div>
                                 )}
+                              </div>
+
+                              {/* Merge Next */}
+                              {tbl.canMergeNext && (
+                                <label className="flex items-start gap-3 cursor-pointer p-2 bg-indigo-50/50 rounded-lg border border-indigo-100">
+                                  <input type="checkbox" checked={tbl.options.mergeNext} onChange={() => toggleMod4Option(tbl.id, 'mergeNext')} className="mt-1 w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-indigo-300" />
+                                  <div>
+                                    <span className="block font-bold text-indigo-700 text-sm">Gộp với bảng kế tiếp</span>
+                                  </div>
+                                </label>
+                              )}
                             </div>
                           </div>
 
