@@ -78,6 +78,8 @@ export interface Mod3ChildInfo {
   evalDate?: string;
   studentId?: string;
   styleProposal?: string;
+  age?: string;
+  gender?: string;
 }
 export interface Module3Data {
   childInfo: Mod3ChildInfo;
@@ -1507,11 +1509,11 @@ Trả về một object JSON với cấu trúc sau:
   "goalSuggestions": [
     {
       "id": "string", // ID của mục tiêu từ dữ liệu đầu vào
-      "assessment": "string", // Ví dụ: "+ Con hoàn thành 70% mục tiêu đề ra." (Viết thường chữ cái sau chữ "Con", CHÚ Ý: KHÔNG in hoa toàn bộ, có dấu + ở đầu)
+      "assessment": "string", // Ví dụ: "+ con hoàn thành mục tiêu đề ra." (BẮT BUỘC: Viết chữ thường, CHỈ chữ in hoa nếu là tên riêng, KHÔNG có phần trăm, Bắt đầu bằng dấu +)
       "details": "string" // Nội dung đề xuất chi tiết (Sử dụng thẻ <b> cho các đầu mục, xuống dòng bằng <br/>)
     }
   ],
-  "generalSummary": "string" // Đoạn văn tổng kết chung. Ví dụ: "Trong tháng 1, con hoàn thành 90% các hoạt động đề ra..."
+  "generalSummary": "string" // Đoạn văn tổng kết chung. Ví dụ: "Trong tháng báo cáo, con đã có những tiến bộ nhất định..."
 }
 
 YÊU CẦU CHI TIẾT NỘI DUNG "details":
@@ -1522,8 +1524,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
   <b>+Giảm trợ giúp dần:</b> ...
   <b>+Lặp lại ở nhiều môi trường:</b> ...
   <b>+Khen khi đúng:</b> ...
-- Nội dung cụ thể, thiết thực, giọng văn khích lệ.
-- QUAN TRỌNG: Đối với mỗi đầu mục mở rộng, hãy ĐƯA RA ÍT NHẤT 2 HOẠT ĐỘNG/GỢI Ý CỤ THỂ, KHÁC NHAU.
+- Nội dung cụ thể, thiết thực, giọng văn thay cho 'bố mẹ' (hoặc người chăm sóc).
 `;
 
       // 2. Call Gemini
@@ -1623,7 +1624,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       fieldGroups.forEach((group, gIdx) => {
         group.goals.forEach((goal, i) => {
           const suggestionData = suggestionsMap.get(goal.id);
-          const assessment = suggestionData?.assessment || `+ ĐẠT ${goal.percentage}% MỤC TIÊU.`;
+          const assessment = suggestionData?.assessment || `+ con hoàn thành mục tiêu đề ra.`;
           const details = suggestionData?.details || "";
 
           // Determine Mark
@@ -1649,7 +1650,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
             children: [
               new Paragraph({ children: [new TextRun({ text: goal.goal, font: "Times New Roman", size: 26 })] }),
               new Paragraph({
-                children: [new TextRun({ text: assessment.toLowerCase().replace(/^\+ /, '+ '), font: "Times New Roman", size: 26 })],
+                children: [new TextRun({ text: assessment.toLowerCase(), font: "Times New Roman", size: 26 })],
                 spacing: { before: 100 }
               })
             ],
@@ -1666,7 +1667,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
 
           // Col 6: Suggestions
           const suggestionParas = [
-            new Paragraph({ children: [new TextRun({ text: assessment, bold: true, font: "Times New Roman", size: 26 })], spacing: { after: 100 } }),
+            new Paragraph({ children: [new TextRun({ text: assessment, bold: false, font: "Times New Roman", size: 26 })], spacing: { after: 100 } }),
             ...parseHtmlToParagraphs(details)
           ];
           if (goal.note) {
@@ -1723,10 +1724,43 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
               children: [
                 new TextRun({ text: "Họ và tên trẻ: ", bold: true, font: "Times New Roman", size: 26 }),
                 new TextRun({ text: childInfo.name, font: "Times New Roman", size: 26 }),
-                new TextRun({ text: "\t\tNgày sinh: ", bold: true, font: "Times New Roman", size: 26 }),
+              ],
+              spacing: { after: 200 }
+            }),
+            // Child Info Line 1.5
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Ngày tháng năm sinh: ", font: "Times New Roman", size: 26 }),
                 new TextRun({ text: childInfo.dob, font: "Times New Roman", size: 26 })
               ],
-              tabStops: [{ type: "left", position: 6000 }],
+              spacing: { after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Ngày lượng giá: ", font: "Times New Roman", size: 26 }),
+                new TextRun({ text: childInfo.evalDate, font: "Times New Roman", size: 26 })
+              ],
+              spacing: { after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Tuổi thực: ", font: "Times New Roman", size: 26 }),
+                new TextRun({ text: childInfo.age || "", font: "Times New Roman", size: 26 })
+              ],
+              spacing: { after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Giới tính: ", font: "Times New Roman", size: 26 }),
+                new TextRun({ text: childInfo.gender || "", font: "Times New Roman", size: 26 })
+              ],
+              spacing: { after: 200 }
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Mã học sinh: ", font: "Times New Roman", size: 26 }),
+                new TextRun({ text: childInfo.studentId || "", font: "Times New Roman", size: 26 })
+              ],
               spacing: { after: 200 }
             }),
             // Child Info Line 2
@@ -1909,7 +1943,7 @@ const App: React.FC = () => {
 
   // --- MODE 3 STATE ---
   const [mod3ChildInfo, setMod3ChildInfo] = useState<Mod3ChildInfo>({
-    name: '', dob: '', reportMonth: '', caregiverTitle: 'bố mẹ', evalDate: '', studentId: '', styleProposal: 'Mặc định'
+    name: '', dob: '', reportMonth: '', caregiverTitle: 'bố mẹ', evalDate: '', studentId: '', styleProposal: 'Mặc định', age: '', gender: ''
   });
   const [mod3FieldGroups, setMod3FieldGroups] = useState<Mod3FieldGroup[]>([
     { id: '1', fieldName: 'Kỹ năng xã hội', goals: [{ id: '1-1', goal: '', percentage: 0, note: '' }] }
@@ -1939,20 +1973,27 @@ const App: React.FC = () => {
       const nameMatch = rawText.match(/(?:Họ và tên|Họ tên|Tên)[\s(trẻ)]*:\s*([^\n\r]+)/i);
       if (nameMatch) newInfo.name = nameMatch[1].trim();
 
-      // Regex tìm "Mã số:"
-      const idMatch = rawText.match(/Mã số\s*:\s*([^\n\r]+)/i);
+      // Regex tìm "Mã số:" hoặc "Mã học sinh:"
+      const idMatch = rawText.match(/(?:Mã số|Mã học sinh)\s*:\s*([^\n\r]+)/i);
       if (idMatch) newInfo.studentId = idMatch[1].trim();
 
-      // Regex tìm "Ngày sinh:"
-      const dobMatch = rawText.match(/Ngày sinh\s*:\s*([\d\/]+)/i);
+      // Regex tìm "Ngày sinh:" hoặc "Ngày tháng năm sinh:"
+      const dobMatch = rawText.match(/(?:Ngày sinh|Ngày tháng năm sinh)\s*:\s*([\d\/]+)/i);
       if (dobMatch) newInfo.dob = dobMatch[1].trim();
 
-      // Regex tìm "Thời gian đánh giá:" hoặc "Ngày đánh giá:"
-      const evalMatch = rawText.match(/(?:Thời gian|Ngày) đánh giá\s*:\s*([\d\/]+)/i);
+      // Regex tìm "Thời gian đánh giá:" hoặc "Ngày đánh giá:" hoặc "Ngày lượng giá:"
+      const evalMatch = rawText.match(/(?:Thời gian|Ngày) (?:đánh giá|lượng giá)\s*:\s*([\d\/]+)/i);
       if (evalMatch) newInfo.evalDate = evalMatch[1].trim();
 
-      setMod3ChildInfo(newInfo);
+      // Regex tìm "Tuổi thực:"
+      const ageMatch = rawText.match(/Tuổi thực\s*:\s*([^\n\r]+)/i);
+      if (ageMatch) newInfo.age = ageMatch[1].trim();
 
+      // Regex tìm "Giới tính:"
+      const genderMatch = rawText.match(/Giới tính\s*:\s*(Nam|Nữ|Khác)/i);
+      if (genderMatch) newInfo.gender = genderMatch[1].trim();
+
+      setMod3ChildInfo(newInfo);
       // 2. Parse ZIP XML (PizZip) để lấy thông tin Bảng Kế Hoạch 
       const zip = new PizZip(arrayBuffer);
       const xml = zip.file("word/document.xml")?.asText();
@@ -2912,10 +2953,6 @@ const App: React.FC = () => {
                   <input type="text" name="name" value={mod3ChildInfo.name} onChange={handleMod3ChildChange} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Mã Số</label>
-                  <input type="text" name="studentId" value={mod3ChildInfo.studentId || ''} onChange={handleMod3ChildChange} placeholder="HS-01" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
-                </div>
-                <div>
                   <label className="text-xs font-bold text-slate-400 uppercase">Ngày sinh</label>
                   <input type="text" name="dob" value={mod3ChildInfo.dob} onChange={handleMod3ChildChange} placeholder="dd/mm/yyyy" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
                 </div>
@@ -2924,11 +2961,38 @@ const App: React.FC = () => {
                   <input type="text" name="evalDate" value={mod3ChildInfo.evalDate || ''} onChange={handleMod3ChildChange} placeholder="dd/mm/yyyy" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
                 </div>
                 <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase">Mã Số</label>
+                  <input type="text" name="studentId" value={mod3ChildInfo.studentId || ''} onChange={handleMod3ChildChange} placeholder="HS-01" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase">Tuổi thực</label>
+                  <input type="text" name="age" value={mod3ChildInfo.age || ''} onChange={handleMod3ChildChange} placeholder="VD: 45 tháng" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase">Giới tính</label>
+                  <input type="text" name="gender" value={mod3ChildInfo.gender || ''} onChange={handleMod3ChildChange} placeholder="Nam/Nữ" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Tháng báo cáo</label>
+                  <input type="text" name="reportMonth" value={mod3ChildInfo.reportMonth} onChange={handleMod3ChildChange} placeholder="Tháng 03 năm 2026" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+                <div>
                   <label className="text-xs font-bold text-slate-400 uppercase">Danh xưng</label>
                   <select name="caregiverTitle" value={mod3ChildInfo.caregiverTitle} onChange={handleMod3ChildChange} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
                     <option value="bố">Bố</option>
                     <option value="mẹ">Mẹ</option>
                     <option value="bố mẹ">Bố Mẹ</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase">Phong cách Viết</label>
+                  <select name="styleProposal" value={mod3ChildInfo.styleProposal} onChange={handleMod3ChildChange} className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                    <option value="Mặc định">Mặc định (1 lời khuyên)</option>
+                    <option value="2 lời khuyên">Chi tiết (2 lời khuyên)</option>
+                    <option value="Serious">Nghiêm túc, Kỷ luật</option>
+                    <option value="Professional">Chuyên môn sâu</option>
+                    <option value="Gentle">Nhẹ nhàng, Khích lệ</option>
+                    <option value="Enthusiastic">Nhiệt tình, Vui tươi</option>
                   </select>
                 </div>
               </div>
