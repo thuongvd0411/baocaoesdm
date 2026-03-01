@@ -2016,19 +2016,17 @@ const App: React.FC = () => {
           let isPlanTable = false;
           let colIdxLinhVuc = -1;
           let colIdxMucTieuDaiHan = -1;
-          let colIdxMucTieuNganHan = -1;
 
-          for (let r = 0; r < Math.min(3, rows.length); r++) {
+          for (let r = 0; r < Math.min(4, rows.length); r++) {
             const cells = rows[r].getElementsByTagName("w:tc");
-            let rowText = "";
             for (let c = 0; c < cells.length; c++) {
-              const cellText = cells[c].textContent?.trim().toLowerCase() || "";
-              rowText += cellText + " ";
-              if (cellText.includes("lĩnh vực")) colIdxLinhVuc = c;
-              if (cellText.includes("mục tiêu dài hạn") || cellText.includes("mục tiêu chính")) colIdxMucTieuDaiHan = c;
-              if (cellText.includes("mục tiêu ngắn hạn") || cellText.includes("mục tiêu phụ")) colIdxMucTieuNganHan = c;
+              const cellText = cells[c].textContent?.toLowerCase() || "";
+              const normalizedStr = cellText.replace(/\s/g, ''); // Bỏ mọi dấu cách để tránh lỗi Word rớt dòng
+
+              if (normalizedStr.includes("lĩnhvực") || normalizedStr.includes("linhvuc")) colIdxLinhVuc = c;
+              if (normalizedStr.includes("mụctiêudàihạn") || normalizedStr.includes("mụctiêuchính") || normalizedStr.includes("muctieudaihan")) colIdxMucTieuDaiHan = c;
             }
-            if (colIdxLinhVuc !== -1 && (colIdxMucTieuDaiHan !== -1 || colIdxMucTieuNganHan !== -1)) {
+            if (colIdxLinhVuc !== -1 && colIdxMucTieuDaiHan !== -1) {
               isPlanTable = true;
               break; // Xác nhận đây là bảng Kế Hoạch
             }
@@ -2043,15 +2041,13 @@ const App: React.FC = () => {
 
               let cellLinhVuc = colIdxLinhVuc !== -1 && cells[colIdxLinhVuc] ? cells[colIdxLinhVuc].textContent?.trim() || "" : "";
 
-              // Text mục tiêu: Ưu tiên Mục tiêu ngắn hạn, nếu không có thì lấy dài hạn
+              // Text mục tiêu: Chỉ lấy mục tiêu dài hạn theo yêu cầu user
               let cellMucTieu = "";
-              if (colIdxMucTieuNganHan !== -1 && cells[colIdxMucTieuNganHan]) {
-                cellMucTieu = cells[colIdxMucTieuNganHan].textContent?.trim() || "";
-              } else if (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan]) {
+              if (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan]) {
                 cellMucTieu = cells[colIdxMucTieuDaiHan].textContent?.trim() || "";
               }
 
-              if (cellLinhVuc.toLowerCase().includes("lĩnh vực") && cellMucTieu.toLowerCase().includes("mục tiêu")) {
+              if (cellLinhVuc.toLowerCase().replace(/\s/g, '').includes("lĩnhvực") && cellMucTieu.toLowerCase().replace(/\s/g, '').includes("mụctiêu")) {
                 continue; // Bỏ qua Header
               }
               if (!cellLinhVuc && !cellMucTieu) continue;
@@ -2082,14 +2078,12 @@ const App: React.FC = () => {
                 fieldIndex++;
               }
 
-              // Xử lý mục tiêu dài hạn / ngắn hạn
+              // Xử lý mục tiêu dài hạn
               if (cellMucTieu && currentFieldGroup) {
                 // Đôi khi mục tiêu bị gộp thành nhiều đoạn văn có số (VD: 1. Làm gì đó \n 2. Làm gì đó)
                 // Cố gắng giữ lại format của word bằng cách lấy từng đoạn
-                const paragraphs = (colIdxMucTieuNganHan !== -1 && cells[colIdxMucTieuNganHan])
-                  ? cells[colIdxMucTieuNganHan].getElementsByTagName("w:p")
-                  : (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan])
-                    ? cells[colIdxMucTieuDaiHan].getElementsByTagName("w:p") : [];
+                const paragraphs = (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan])
+                  ? cells[colIdxMucTieuDaiHan].getElementsByTagName("w:p") : [];
 
                 let goalTextBlocks: string[] = [];
                 for (let p = 0; p < paragraphs.length; p++) {
@@ -2118,7 +2112,7 @@ const App: React.FC = () => {
                 });
               }
             }
-            break; // Chỉ cần quét bảng đầu tiên khớp
+            // KHÔNG break ở đây để quét tiệp toàn bộ các bảng khác trong file nếu có.
           }
         }
 
