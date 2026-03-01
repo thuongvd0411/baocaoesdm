@@ -1781,7 +1781,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
                 insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
                 insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
               },
-              columnWidths: [1200, 3000, 400, 400, 400, 4600] // Adjusted widths: Field (12%), Goal (30%), Results (4%x3), Suggestions (46%)
+              columnWidths: [1800, 3000, 400, 400, 400, 4000] // Field (18%), Goal (30%), Results (4%x3), Suggestions (40%)
             })
           ]
         }]
