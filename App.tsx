@@ -1624,7 +1624,8 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       fieldGroups.forEach((group, gIdx) => {
         group.goals.forEach((goal, i) => {
           const suggestionData = suggestionsMap.get(goal.id);
-          const assessment = suggestionData?.assessment || `+ con hoàn thành mục tiêu đề ra.`;
+          // AI suggestion now only needs details or we format the assessment dynamically
+          const formattedAssessment = `+ con hoàn thành ${goal.percentage}% mục tiêu đề ra.`;
           const details = suggestionData?.details || "";
 
           // Determine Mark
@@ -1645,14 +1646,10 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
             }));
           }
 
-          // Col 2: Goal Text & Assessment
+          // Col 2: Goal Text ONLY (Bỏ phần assessment hoàn thành mục tiêu ở đây)
           cells.push(new TableCell({
             children: [
-              new Paragraph({ children: [new TextRun({ text: goal.goal, font: "Times New Roman", size: 26 })] }),
-              new Paragraph({
-                children: [new TextRun({ text: assessment.toLowerCase(), font: "Times New Roman", size: 26 })],
-                spacing: { before: 100 }
-              })
+              new Paragraph({ children: [new TextRun({ text: goal.goal, font: "Times New Roman", size: 26 })] })
             ],
             verticalAlign: VerticalAlign.TOP,
           }));
@@ -1667,7 +1664,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
 
           // Col 6: Suggestions
           const suggestionParas = [
-            new Paragraph({ children: [new TextRun({ text: assessment, bold: false, font: "Times New Roman", size: 26 })], spacing: { after: 100 } }),
+            new Paragraph({ children: [new TextRun({ text: formattedAssessment, bold: false, font: "Times New Roman", size: 26 })], spacing: { after: 100 } }),
             ...parseHtmlToParagraphs(details)
           ];
           if (goal.note) {
