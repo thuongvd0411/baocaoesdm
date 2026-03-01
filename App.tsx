@@ -2044,15 +2044,10 @@ const App: React.FC = () => {
               const isLinhVuc = normalizedStr.includes("lĩnhvực") || normalizedStr.includes("linhvuc");
               const isMucTieu = normalizedStr.includes("mụctiêudàihạn") || normalizedStr.includes("mụctiêuchính") || normalizedStr.includes("muctieudaihan") || (normalizedStr.includes("mụctiêu") && normalizedStr.includes("dàihạn"));
 
-              if (i === 0 && r === 0) {
-                console.log(`Table ${i}, Row ${r}, Cell ${c}: Raw=[${cellText}] Normalized=[${normalizedStr}]`);
-              }
-
               if (isLinhVuc) colIdxLinhVuc = c;
               if (isMucTieu) colIdxMucTieuDaiHan = c;
             }
             if (colIdxLinhVuc !== -1 && colIdxMucTieuDaiHan !== -1) {
-              console.log(`MATCHED KẾ HOẠCH BẢNG ${i}: Lĩnh vực ở cột ${colIdxLinhVuc}, Mục tiêu ở cột ${colIdxMucTieuDaiHan}`);
               isPlanTable = true;
               break; // Xác nhận đây là bảng Kế Hoạch
             }
@@ -2093,7 +2088,8 @@ const App: React.FC = () => {
               }
 
               // Loại trừ dòng STT hay các dòng số
-              if (isNewField && cellLinhVuc && isNaN(Number(cellLinhVuc.replace(/[^\d]/g, '')))) {
+              const isOnlyNumbers = /^[\d\s\.\,\-\+]+$/.test(cellLinhVuc.trim());
+              if (isNewField && cellLinhVuc && !isOnlyNumbers) {
                 // Tạo Group Lĩnh Vực Mới
                 currentFieldGroup = {
                   id: Date.now().toString() + Math.random().toString(),
