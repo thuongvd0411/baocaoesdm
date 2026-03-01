@@ -2005,6 +2005,21 @@ const App: React.FC = () => {
         let currentFieldGroup: Mod3FieldGroup | null = null;
         let fieldIndex = 1;
 
+        // Helper: Extract Text content properly from XML Element
+        const extractTextFromElement = (element: Element): string => {
+          if (!element) return "";
+          const ts = element.getElementsByTagName("w:t");
+          let res = "";
+          for (let i = 0; i < ts.length; i++) {
+            res += ts[i].textContent || "";
+          }
+          return res.trim();
+        };
+
+        const standardizeText = (text: string): string => {
+          return text.normalize("NFC").toLowerCase().replace(/[\s\r\n\t\.,;:_!\-\(\)]/g, '');
+        };
+
         for (let i = 0; i < tables.length; i++) {
           const table = tables[i];
           const rows = table.getElementsByTagName("w:tr");
@@ -2020,11 +2035,14 @@ const App: React.FC = () => {
           for (let r = 0; r < Math.min(4, rows.length); r++) {
             const cells = rows[r].getElementsByTagName("w:tc");
             for (let c = 0; c < cells.length; c++) {
-              const cellText = cells[c].textContent?.toLowerCase() || "";
-              const normalizedStr = cellText.replace(/\s/g, ''); // Bỏ mọi dấu cách để tránh lỗi Word rớt dòng
+              const cellText = extractTextFromElement(cells[c]);
+              const normalizedStr = standardizeText(cellText); // Bỏ mọi dấu cách để tránh lỗi Word rớt dòng
 
-              if (normalizedStr.includes("lĩnhvực") || normalizedStr.includes("linhvuc")) colIdxLinhVuc = c;
-              if (normalizedStr.includes("mụctiêudàihạn") || normalizedStr.includes("mụctiêuchính") || normalizedStr.includes("muctieudaihan")) colIdxMucTieuDaiHan = c;
+              const isLinhVuc = normalizedStr.includes("lĩnhvực") || normalizedStr.includes("linhvuc");
+              const isMucTieu = normalizedStr.includes("mụctiêudàihạn") || normalizedStr.includes("mụctiêuchính") || normalizedStr.includes("muctieudaihan") || (normalizedStr.includes("mụctiêu") && normalizedStr.includes("dàihạn"));
+
+              if (isLinhVuc) colIdxLinhVuc = c;
+              if (isMucTieu) colIdxMucTieuDaiHan = c;
             }
             if (colIdxLinhVuc !== -1 && colIdxMucTieuDaiHan !== -1) {
               isPlanTable = true;
@@ -2039,15 +2057,15 @@ const App: React.FC = () => {
               const cells = rows[r].getElementsByTagName("w:tc");
               if (cells.length === 0) continue;
 
-              let cellLinhVuc = colIdxLinhVuc !== -1 && cells[colIdxLinhVuc] ? cells[colIdxLinhVuc].textContent?.trim() || "" : "";
+              let cellLinhVuc = colIdxLinhVuc !== -1 && cells[colIdxLinhVuc] ? extractTextFromElement(cells[colIdxLinhVuc]) : "";
 
               // Text mục tiêu: Chỉ lấy mục tiêu dài hạn theo yêu cầu user
               let cellMucTieu = "";
               if (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan]) {
-                cellMucTieu = cells[colIdxMucTieuDaiHan].textContent?.trim() || "";
+                cellMucTieu = extractTextFromElement(cells[colIdxMucTieuDaiHan]);
               }
 
-              if (cellLinhVuc.toLowerCase().replace(/\s/g, '').includes("lĩnhvực") && cellMucTieu.toLowerCase().replace(/\s/g, '').includes("mụctiêu")) {
+              if (standardizeText(cellLinhVuc).includes("lĩnhvực") && standardizeText(cellMucTieu).includes("mụctiêu")) {
                 continue; // Bỏ qua Header
               }
               if (!cellLinhVuc && !cellMucTieu) continue;
@@ -2087,7 +2105,10 @@ const App: React.FC = () => {
 
                 let goalTextBlocks: string[] = [];
                 for (let p = 0; p < paragraphs.length; p++) {
-                  const txt = paragraphs[p].textContent?.trim() || "";
+                  const tNodes = paragraphs[p].getElementsByTagName("w:t");
+                  let pText = "";
+                  for (let tn = 0; tn < tNodes.length; tn++) pText += tNodes[tn].textContent || "";
+                  const txt = pText.trim();
                   if (txt) goalTextBlocks.push(txt);
                 }
                 const finalGoalText = goalTextBlocks.length > 0 ? goalTextBlocks.join('\n') : cellMucTieu;
