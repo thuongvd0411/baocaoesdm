@@ -1524,7 +1524,8 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
   <b>+Giảm trợ giúp dần:</b> ...
   <b>+Lặp lại ở nhiều môi trường:</b> ...
   <b>+Khen khi đúng:</b> ...
-- Nội dung cụ thể, thiết thực, giọng văn thay cho 'bố mẹ' (hoặc người chăm sóc).
+- Nội dung cụ thể, thiết thực.
+- BẮT BUỘC: Sử dụng danh xưng "${childInfo.caregiverTitle}" làm chủ ngữ cho TẤT CẢ các câu (Ví dụ: "${childInfo.caregiverTitle} hãy...", "${childInfo.caregiverTitle} nên..."). KHÔNG được thiếu chủ ngữ.
 `;
 
       // 2. Call Gemini
@@ -1960,6 +1961,7 @@ const App: React.FC = () => {
     { id: '1', fieldName: 'Kỹ năng xã hội', goals: [{ id: '1-1', goal: '', percentage: 0, note: '' }] }
   ]);
   const [mod3Loading, setMod3Loading] = useState(false);
+  const [mod3GoalSelection, setMod3GoalSelection] = useState<number>(1);
 
   // --- MODE 4 STATE ---
   const [mod4File, setMod4File] = useState<File | null>(null);
@@ -2127,21 +2129,26 @@ const App: React.FC = () => {
                   let pText = "";
                   for (let tn = 0; tn < tNodes.length; tn++) pText += tNodes[tn].textContent || "";
                   const txt = pText.trim();
-                  if (txt) goalTextBlocks.push(txt);
+                  // Loại bỏ số thứ tự ở đầu nếu có (VD: 1. Làm gì đó -> Làm gì đó)
+                  const cleanTxt = txt.replace(/^\d+[\.\)\s]+/, '').trim();
+                  if (cleanTxt) goalTextBlocks.push(cleanTxt);
                 }
-                const finalGoalText = goalTextBlocks.length > 0 ? goalTextBlocks.join('\n') : cellMucTieu;
 
-                // Nếu ô mục tiêu dài hạn có cách dòng hay đầu dòng, ta nhóm tất cả lại thành 1 mục tiêu duy nhất
-                // (Chỉ tách khi người dùng thực sự đặt vào các ô khác nhau trong Word)
-                let splittedGoals = [finalGoalText];
+                // Chọn mục tiêu dựa trên mod3GoalSelection
+                let selectedGoalText = "";
+                if (goalTextBlocks.length > 0) {
+                  // Nếu có nhiều mục tiêu, lấy theo index. Nếu không đủ, lấy cái cuối cùng hoặc cái đầu tiên.
+                  const targetIdx = Math.min(mod3GoalSelection - 1, goalTextBlocks.length - 1);
+                  selectedGoalText = goalTextBlocks[targetIdx];
+                } else {
+                  selectedGoalText = cellMucTieu.replace(/^\d+[\.\)\s]+/, '').trim();
+                }
 
-                splittedGoals.forEach(g => {
-                  currentFieldGroup!.goals.push({
-                    id: Date.now().toString() + Math.random().toString(),
-                    goal: g.trim(),
-                    percentage: 0,
-                    note: ''
-                  });
+                currentFieldGroup!.goals.push({
+                  id: Date.now().toString() + Math.random().toString(),
+                  goal: selectedGoalText,
+                  percentage: 0,
+                  note: ''
                 });
               }
             }
@@ -2982,6 +2989,20 @@ const App: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-indigo-800">Tự động điền qua File (.docx)</h3>
                 <p className="text-xs text-indigo-600 mt-1">Hệ thống sẽ thử trích xuất thông tin trẻ và Bảng Kế hoạch từ file này.</p>
+                <div className="flex items-center gap-4 mt-3">
+                  <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Chọn mục tiêu ngắn hạn:</span>
+                  <div className="flex gap-2">
+                    {[1, 2, 3].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setMod3GoalSelection(num)}
+                        className={`w-8 h-8 rounded-lg font-bold text-xs transition-all ${mod3GoalSelection === num ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-indigo-400 border border-indigo-200 hover:border-indigo-400'}`}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="cursor-pointer bg-white px-4 py-2 rounded-xl text-sm font-bold text-indigo-600 shadow-sm border border-indigo-200 hover:bg-slate-50 transition-colors">
