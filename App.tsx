@@ -5,7 +5,7 @@ import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import * as XLSX from 'xlsx';
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType, VerticalAlign, BorderStyle } from "docx";
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType, VerticalAlign, BorderStyle, ImageRun } from "docx";
 import { ESDMResult, ProcessingStatus, StudentInfo, Mod4TableInfo, MatrixHighlightState } from './types';
 import Button from './components/Button';
 import StatusAlert from './components/StatusAlert';
@@ -1544,6 +1544,15 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       const generalSummary = generatedContent.generalSummary || "Chưa có tổng kết.";
 
       // 3. Generate DOCX using 'docx' library (creates real .docx file)
+      let logoData: ArrayBuffer | null = null;
+      try {
+        const resp = await fetch('/baocaoesdm/logo.png');
+        if (resp.ok) {
+          logoData = await resp.arrayBuffer();
+        }
+      } catch (e) {
+        console.warn("Logo fetch failed", e);
+      }
 
       // Helper: Parse simple HTML tags from Gemini (<b>, <br>) to Docx Paragraphs
       const parseHtmlToParagraphs = (text: string): Paragraph[] => {
@@ -1720,11 +1729,18 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
             // --- HEADER (LOGO + INFO) ---
             new Paragraph({
               children: [
+                ...(logoData ? [
+                  new ImageRun({
+                    data: logoData,
+                    transformation: { width: 50, height: 50 },
+                  }),
+                  new TextRun({ text: "   ", font: "Times New Roman", size: 26 }) // Khoảng cách nhỏ sau logo
+                ] : []),
                 new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", bold: true, font: "Times New Roman", size: 26 }),
                 new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 26 }),
                 new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 26 }),
               ],
-              alignment: AlignmentType.CENTER,
+              alignment: AlignmentType.LEFT,
               spacing: { after: 300 }
             }),
 
