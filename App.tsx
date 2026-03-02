@@ -1749,7 +1749,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
                                 children: [
                                   new ImageRun({
                                     data: logoData,
-                                    transformation: { width: 50, height: 50 },
+                                    transformation: { width: 100, height: 100 },
                                   })
                                 ],
                                 alignment: AlignmentType.LEFT,
@@ -1763,9 +1763,9 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
                           children: [
                             new Paragraph({
                               children: [
-                                new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", bold: true, font: "Times New Roman", size: 26 }),
-                                new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 26 }),
-                                new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 26 }),
+                                new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", bold: false, font: "Times New Roman", size: 20 }),
+                                new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 20 }),
+                                new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 20 }),
                               ],
                               alignment: AlignmentType.LEFT,
                             }),
