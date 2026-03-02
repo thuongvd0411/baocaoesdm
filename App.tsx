@@ -2050,6 +2050,7 @@ const App: React.FC = () => {
           let isPlanTable = false;
           let colIdxLinhVuc = -1;
           let colIdxMucTieuDaiHan = -1;
+          let colIdxMucTieuNganHan = -1;
 
           for (let r = 0; r < Math.min(4, rows.length); r++) {
             const cells = rows[r].getElementsByTagName("w:tc");
@@ -2059,11 +2060,13 @@ const App: React.FC = () => {
 
               const isLinhVuc = normalizedStr.includes("lĩnhvực") || normalizedStr.includes("linhvuc");
               const isMucTieu = normalizedStr.includes("mụctiêudàihạn") || normalizedStr.includes("mụctiêuchính") || normalizedStr.includes("muctieudaihan") || (normalizedStr.includes("mụctiêu") && normalizedStr.includes("dàihạn"));
+              const isMucTieuNganHan = normalizedStr.includes("mụctiêungắnhạn") || normalizedStr.includes("muctieunganhạn") || (normalizedStr.includes("mụctiêu") && normalizedStr.includes("ngắnhạn"));
 
               if (isLinhVuc) colIdxLinhVuc = c;
               if (isMucTieu) colIdxMucTieuDaiHan = c;
+              if (isMucTieuNganHan) colIdxMucTieuNganHan = c;
             }
-            if (colIdxLinhVuc !== -1 && colIdxMucTieuDaiHan !== -1) {
+            if (colIdxLinhVuc !== -1 && (colIdxMucTieuDaiHan !== -1 || colIdxMucTieuNganHan !== -1)) {
               isPlanTable = true;
               break; // Xác nhận đây là bảng Kế Hoạch
             }
@@ -2116,12 +2119,13 @@ const App: React.FC = () => {
                 fieldIndex++;
               }
 
-              // Xử lý mục tiêu dài hạn
-              if (cellMucTieu && currentFieldGroup) {
-                // Đôi khi mục tiêu bị gộp thành nhiều đoạn văn có số (VD: 1. Làm gì đó \n 2. Làm gì đó)
-                // Cố gắng giữ lại format của word bằng cách lấy từng đoạn
-                const paragraphs = (colIdxMucTieuDaiHan !== -1 && cells[colIdxMucTieuDaiHan])
-                  ? cells[colIdxMucTieuDaiHan].getElementsByTagName("w:p") : [];
+              // Xử lý mục tiêu dài hạn / ngắn hạn
+              if (currentFieldGroup) {
+                // Ưu tiên lấy cột mục tiêu ngắn hạn nếu có, nếu không lấy cột dài hạn
+                const targetColIdx = colIdxMucTieuNganHan !== -1 ? colIdxMucTieuNganHan : colIdxMucTieuDaiHan;
+
+                const paragraphs = (targetColIdx !== -1 && cells[targetColIdx])
+                  ? cells[targetColIdx].getElementsByTagName("w:p") : [];
 
                 let goalTextBlocks: string[] = [];
                 for (let p = 0; p < paragraphs.length; p++) {
