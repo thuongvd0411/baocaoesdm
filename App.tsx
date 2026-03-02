@@ -5,7 +5,7 @@ import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import * as XLSX from 'xlsx';
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
-import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType, VerticalAlign, BorderStyle, ImageRun } from "docx";
+import { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, TextRun, AlignmentType, VerticalAlign, BorderStyle, ImageRun, Header, Footer } from "docx";
 import { ESDMResult, ProcessingStatus, StudentInfo, Mod4TableInfo, MatrixHighlightState } from './types';
 import Button from './components/Button';
 import StatusAlert from './components/StatusAlert';
@@ -1717,7 +1717,6 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       }));
 
       // --- Document Creation ---
-      // --- Document Creation ---
       const doc = new Document({
         sections: [{
           properties: {
@@ -1725,25 +1724,77 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
               margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 } // 2cm ~ 1134 dxa
             }
           },
-          children: [
-            // --- HEADER (LOGO + INFO) ---
-            new Paragraph({
+          headers: {
+            default: new Header({
               children: [
-                ...(logoData ? [
-                  new ImageRun({
-                    data: logoData,
-                    transformation: { width: 50, height: 50 },
-                  }),
-                  new TextRun({ text: "   ", font: "Times New Roman", size: 26 }) // Khoảng cách nhỏ sau logo
-                ] : []),
-                new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", bold: true, font: "Times New Roman", size: 26 }),
-                new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 26 }),
-                new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 26 }),
+                new Table({
+                  width: { size: 10000, type: WidthType.DXA },
+                  borders: {
+                    top: { style: BorderStyle.NONE },
+                    bottom: { style: BorderStyle.NONE },
+                    left: { style: BorderStyle.NONE },
+                    right: { style: BorderStyle.NONE },
+                    insideHorizontal: { style: BorderStyle.NONE },
+                    insideVertical: { style: BorderStyle.NONE },
+                  },
+                  rows: [
+                    new TableRow({
+                      children: [
+                        new TableCell({
+                          width: { size: 1200, type: WidthType.DXA },
+                          verticalAlign: VerticalAlign.CENTER,
+                          children: [
+                            ...(logoData ? [
+                              new Paragraph({
+                                children: [
+                                  new ImageRun({
+                                    data: logoData,
+                                    transformation: { width: 50, height: 50 },
+                                  })
+                                ],
+                                alignment: AlignmentType.LEFT,
+                              })
+                            ] : []),
+                          ],
+                        }),
+                        new TableCell({
+                          width: { size: 8800, type: WidthType.DXA },
+                          verticalAlign: VerticalAlign.CENTER,
+                          children: [
+                            new Paragraph({
+                              children: [
+                                new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", bold: true, font: "Times New Roman", size: 26 }),
+                                new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 26 }),
+                                new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 26 }),
+                              ],
+                              alignment: AlignmentType.LEFT,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
               ],
-              alignment: AlignmentType.LEFT,
-              spacing: { after: 300 }
             }),
-
+          },
+          footers: {
+            default: new Footer({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: "Trang ", font: "Times New Roman", size: 20 }),
+                    new TextRun({ children: ["PAGE_NUMBER"], font: "Times New Roman", size: 20 }),
+                    new TextRun({ text: " / ", font: "Times New Roman", size: 20 }),
+                    new TextRun({ children: ["NUM_PAGES"], font: "Times New Roman", size: 20 }),
+                  ],
+                  alignment: AlignmentType.CENTER,
+                }),
+              ],
+            }),
+          },
+          children: [
+            // --- MAIN BODY STARTS HERE ---
             // --- TITLE ---
             new Paragraph({
               children: [
