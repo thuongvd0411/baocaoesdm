@@ -1585,28 +1585,28 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
             new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: "LĨNH VỰC", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               rowSpan: 2,
-              shading: { fill: "70AD47", type: "clear", color: "auto" },
+              shading: { fill: "76933C", type: "clear", color: "auto" },
               verticalAlign: VerticalAlign.CENTER,
               width: { size: 1800, type: WidthType.DXA },
             }),
             new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: "MỤC TIÊU", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               rowSpan: 2,
-              shading: { fill: "70AD47", type: "clear", color: "auto" },
+              shading: { fill: "76933C", type: "clear", color: "auto" },
               verticalAlign: VerticalAlign.CENTER,
               width: { size: 3000, type: WidthType.DXA },
             }),
             new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: "KẾT QUẢ", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               columnSpan: 3,
-              shading: { fill: "70AD47", type: "clear", color: "auto" },
+              shading: { fill: "76933C", type: "clear", color: "auto" },
               verticalAlign: VerticalAlign.CENTER,
               width: { size: 1200, type: WidthType.DXA },
             }),
             new TableCell({
               children: [new Paragraph({ children: [new TextRun({ text: "ĐỀ XUẤT GIA ĐÌNH", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })],
               rowSpan: 2,
-              shading: { fill: "70AD47", type: "clear", color: "auto" },
+              shading: { fill: "76933C", type: "clear", color: "auto" }, // Darker olive green like image
               verticalAlign: VerticalAlign.CENTER,
               width: { size: 4000, type: WidthType.DXA },
             }),
@@ -1619,9 +1619,9 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       tableRows.push(
         new TableRow({
           children: [
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+/-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "70AD47", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "76933C", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "+/-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "76933C", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "-", bold: true, font: "Times New Roman", size: 26 })], alignment: AlignmentType.CENTER })], shading: { fill: "76933C", type: "clear", color: "auto" }, verticalAlign: VerticalAlign.CENTER, width: { size: 400, type: WidthType.DXA } }),
           ]
         })
       );
@@ -1631,7 +1631,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
         group.goals.forEach((goal, i) => {
           const suggestionData = suggestionsMap.get(goal.id);
           // AI suggestion now only needs details or we format the assessment dynamically
-          const formattedAssessment = `+ con hoàn thành ${goal.percentage}% mục tiêu đề ra.`;
+          const formattedAssessment = `+ Con hoàn thành ${goal.percentage}% mục tiêu đề ra.`;
           const details = suggestionData?.details || "";
 
           // Determine Mark
@@ -1708,6 +1708,7 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
       }));
 
       // --- Document Creation ---
+      // --- Document Creation ---
       const doc = new Document({
         sections: [{
           properties: {
@@ -1716,84 +1717,96 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
             }
           },
           children: [
-            // Header Info
+            // --- HEADER (LOGO + INFO) ---
             new Paragraph({
               children: [
-                new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", font: "Times New Roman", size: 26 }), // 13pt
+                new TextRun({ text: "Trung Tâm Tâm lý-Giáo dục Sắc Màu", bold: true, font: "Times New Roman", size: 26 }),
                 new TextRun({ text: "\nĐịa chỉ: Lk 07, Ngõ 536a Minh Khai, Vĩnh Tuy, HBT, HN.", break: 1, font: "Times New Roman", size: 26 }),
                 new TextRun({ text: "\nLiên hệ: 0399797109", break: 1, font: "Times New Roman", size: 26 }),
               ],
               alignment: AlignmentType.CENTER,
-              spacing: { after: 400 }
+              spacing: { after: 300 }
             }),
-            // Child Info Line 1
+
+            // --- TITLE ---
             new Paragraph({
               children: [
-                new TextRun({ text: "Họ và tên trẻ: ", bold: true, font: "Times New Roman", size: 26 }),
-                new TextRun({ text: childInfo.name, font: "Times New Roman", size: 26 }),
+                new TextRun({ text: `ĐÁNH GIÁ KẾT QUẢ CAN THIỆP THÁNG ${childInfo.reportMonth || ""}`, bold: true, font: "Times New Roman", size: 32 }), // 16pt
               ],
-              spacing: { after: 200 }
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 300, before: 300 }
             }),
-            // Child Info Line 1.5
+
+            // --- CHILD INFO ---
             new Paragraph({
               children: [
-                new TextRun({ text: "Ngày tháng năm sinh: ", font: "Times New Roman", size: 26 }),
-                new TextRun({ text: childInfo.dob, font: "Times New Roman", size: 26 })
+                new TextRun({ text: `1. Thời gian đánh giá: Tháng ${childInfo.reportMonth ? childInfo.reportMonth.split('/')[0] : ""} (Từ ngày 1 đến ngày 30/${childInfo.reportMonth || ""})`, bold: true, font: "Times New Roman", size: 28 }),
               ],
-              spacing: { after: 200 }
+              spacing: { after: 150 }
             }),
             new Paragraph({
               children: [
-                new TextRun({ text: "Ngày lượng giá: ", font: "Times New Roman", size: 26 }),
-                new TextRun({ text: childInfo.evalDate, font: "Times New Roman", size: 26 })
+                new TextRun({ text: `2. Họ và tên: `, bold: true, font: "Times New Roman", size: 28 }),
+                new TextRun({ text: childInfo.name, bold: true, font: "Times New Roman", size: 28 }),
               ],
-              spacing: { after: 200 }
+              spacing: { after: 150 }
             }),
             new Paragraph({
               children: [
-                new TextRun({ text: "Tuổi thực: ", font: "Times New Roman", size: 26 }),
-                new TextRun({ text: childInfo.age || "", font: "Times New Roman", size: 26 })
+                new TextRun({ text: `3. Ngày tháng năm sinh: `, bold: true, font: "Times New Roman", size: 28 }),
+                new TextRun({ text: childInfo.dob, italics: true, font: "Times New Roman", size: 28 }),
               ],
-              spacing: { after: 200 }
+              spacing: { after: 150 }
             }),
             new Paragraph({
               children: [
-                new TextRun({ text: "Giới tính: ", font: "Times New Roman", size: 26 }),
-                new TextRun({ text: childInfo.gender || "", font: "Times New Roman", size: 26 })
-              ],
-              spacing: { after: 200 }
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({ text: "Mã học sinh: ", font: "Times New Roman", size: 26 }),
-                new TextRun({ text: childInfo.studentId || "", font: "Times New Roman", size: 26 })
-              ],
-              spacing: { after: 200 }
-            }),
-            // Child Info Line 2
-            new Paragraph({
-              children: [
-                new TextRun({ text: "Tháng báo cáo: ", bold: true, font: "Times New Roman", size: 26 }),
-                new TextRun({ text: childInfo.reportMonth, font: "Times New Roman", size: 26 })
+                new TextRun({ text: `4. Mã số: `, bold: true, font: "Times New Roman", size: 28 }),
+                new TextRun({ text: childInfo.studentId || "", bold: true, font: "Times New Roman", size: 28 }),
               ],
               spacing: { after: 400 }
             }),
-            // Table
+
+            // --- LEGENDS ---
+            new Paragraph({
+              children: [new TextRun({ text: "Đạt + là con tự thực hiện được", font: "Times New Roman", size: 26 })],
+              spacing: { after: 50 }
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: "Đạt +- là con thực hiện được với sự hỗ trợ một phần", font: "Times New Roman", size: 26 })],
+              spacing: { after: 50 }
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: "Đạt – là con cần sự hỗ trợ toàn phần", font: "Times New Roman", size: 26 })],
+              spacing: { after: 50 }
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: "MTC: mục tiêu chính", font: "Times New Roman", size: 26 })],
+              spacing: { after: 50 }
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: "MTP: Mục tiêu phụ", font: "Times New Roman", size: 26 })],
+              spacing: { after: 50 }
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: "MTNT: Mục tiêu nền tảng", font: "Times New Roman", size: 26 })],
+              spacing: { after: 400 }
+            }),
+
+            // THE TABLE
             new Table({
+              width: { size: 10000, type: WidthType.DXA }, // Full width
               rows: tableRows,
-              width: { size: 100, type: WidthType.PERCENTAGE },
               borders: {
-                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
-                insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                top: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
+                insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "000000" },
               },
-              columnWidths: [1800, 3000, 400, 400, 400, 4000] // Field (18%), Goal (30%), Results (4%x3), Suggestions (40%)
-            })
-          ]
-        }]
+            }),
+          ],
+        }],
       });
 
       const blob = await Packer.toBlob(doc);
