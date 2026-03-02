@@ -1740,7 +1740,8 @@ YÊU CẦU CHI TIẾT NỘI DUNG "details":
             // --- CHILD INFO ---
             new Paragraph({
               children: [
-                new TextRun({ text: `1. Thời gian đánh giá: Tháng ${childInfo.reportMonth ? childInfo.reportMonth.split('/')[0] : ""} (Từ ngày 1 đến ngày 30/${childInfo.reportMonth || ""})`, bold: true, font: "Times New Roman", size: 28 }),
+                new TextRun({ text: `1. Thời gian đánh giá: `, bold: true, font: "Times New Roman", size: 28 }),
+                new TextRun({ text: `Tháng ${childInfo.reportMonth ? childInfo.reportMonth.split('/')[0] : ""} (Từ ngày 1 đến ngày 30/${childInfo.reportMonth || ""})`, bold: true, font: "Times New Roman", size: 28 }),
               ],
               spacing: { after: 150 }
             }),
@@ -1967,8 +1968,21 @@ const App: React.FC = () => {
   const [smartSplitting, setSmartSplitting] = useState<boolean>(false);
 
   // --- MODE 3 STATE ---
-  const [mod3ChildInfo, setMod3ChildInfo] = useState<Mod3ChildInfo>({
-    name: '', dob: '', reportMonth: '', caregiverTitle: 'bố mẹ', evalDate: '', studentId: '', styleProposal: 'Mặc định', age: '', gender: ''
+  const [mod3ChildInfo, setMod3ChildInfo] = useState<Mod3ChildInfo>(() => {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    return {
+      name: '',
+      dob: '',
+      reportMonth: `${month < 10 ? '0' + month : month}/${year}`,
+      caregiverTitle: 'bố mẹ',
+      evalDate: '',
+      studentId: '',
+      styleProposal: 'Mặc định',
+      age: '',
+      gender: ''
+    };
   });
   const [mod3FieldGroups, setMod3FieldGroups] = useState<Mod3FieldGroup[]>([
     { id: '1', fieldName: 'Kỹ năng xã hội', goals: [{ id: '1-1', goal: '', percentage: 0, note: '' }] }
@@ -3072,7 +3086,40 @@ const App: React.FC = () => {
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs font-bold text-slate-400 uppercase">Tháng báo cáo</label>
-                  <input type="text" name="reportMonth" value={mod3ChildInfo.reportMonth} onChange={handleMod3ChildChange} placeholder="Tháng 03 năm 2026" className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
+                  <div className="flex items-center gap-2 mt-1">
+                    <button
+                      onClick={() => {
+                        const [m, y] = mod3ChildInfo.reportMonth.split('/').map(Number);
+                        let nm = m - 1;
+                        let ny = y;
+                        if (nm < 1) { nm = 12; ny--; }
+                        setMod3ChildInfo(prev => ({ ...prev, reportMonth: `${nm < 10 ? '0' + nm : nm}/${ny}` }));
+                      }}
+                      className="w-8 h-8 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <input
+                      type="text"
+                      name="reportMonth"
+                      value={mod3ChildInfo.reportMonth}
+                      onChange={handleMod3ChildChange}
+                      placeholder="mm/yyyy"
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-center font-bold text-indigo-600"
+                    />
+                    <button
+                      onClick={() => {
+                        const [m, y] = mod3ChildInfo.reportMonth.split('/').map(Number);
+                        let nm = m + 1;
+                        let ny = y;
+                        if (nm > 12) { nm = 1; ny++; }
+                        setMod3ChildInfo(prev => ({ ...prev, reportMonth: `${nm < 10 ? '0' + nm : nm}/${ny}` }));
+                      }}
+                      className="w-8 h-8 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="9 5l7 7-7 7" /></svg>
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-400 uppercase">Danh xưng</label>
